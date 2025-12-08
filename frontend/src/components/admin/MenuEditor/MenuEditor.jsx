@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { addMenuItem } from "../../../services/menu";
+import React, { useState, useEffect } from "react";
+import { addMenuItem, getMenuItems } from "../../../services/menu";
 import "./MenuEditor.css";
 
 const MenuEditor = () => {
@@ -7,8 +7,30 @@ const MenuEditor = () => {
   const [price, setPrice] = useState("");
   const [category, setCategory] = useState("");
   const [description, setDescription] = useState("");
-  const [message, setMessage] = useState("");
 
+  const [message, setMessage] = useState("");
+  const [menu, setMenu] = useState([]);
+
+  // ✔ Load Menu Function
+  const loadMenu = async () => {
+    try {
+      const data = await getMenuItems();
+      setMenu(data);
+    } catch (error) {
+      console.error("Menu load error:", error);
+    }
+  };
+
+  // ✔ Correct useEffect async wrapper (no warnings)
+  useEffect(() => {
+    const fetchMenu = async () => {
+      await loadMenu();
+    };
+
+    fetchMenu();
+  }, []);
+
+  // ✔ Add new menu item
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -24,10 +46,15 @@ const MenuEditor = () => {
 
     if (result?.id) {
       setMessage(`✔ Added successfully (ID: ${result.id})`);
+
+      // Reset fields
       setName("");
       setPrice("");
       setCategory("");
       setDescription("");
+
+      // Reload menu
+      await loadMenu();
     } else {
       setMessage("❌ Failed to add");
     }
@@ -70,6 +97,19 @@ const MenuEditor = () => {
       </form>
 
       {message && <p className="msg">{message}</p>}
+
+      <hr />
+
+      <h3>Menu Items</h3>
+      <div className="menu-list">
+        {menu.map((item) => (
+          <div key={item.id} className="menu-item">
+            <strong>{item.name}</strong> — {item.price} AMD <br />
+            <em>{item.category}</em> <br />
+            {item.description}
+          </div>
+        ))}
+      </div>
     </div>
   );
 };

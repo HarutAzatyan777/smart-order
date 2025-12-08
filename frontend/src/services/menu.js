@@ -21,3 +21,15 @@ export async function addMenuItem(item) {
     return null;
   }
 }
+
+
+export async function getMenuItems() {
+  try {
+    const res = await fetch(`${BASE_URL}/getMenuItems`);
+    return await res.json();
+  } catch (err) {
+    console.error("getMenuItems error:", err);
+    return [];
+  }
+}
+

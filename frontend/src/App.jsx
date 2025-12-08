@@ -1,13 +1,6 @@
-import Orders from "./components/Orders";
-import MenuEditor from "./components/admin/MenuEditor/MenuEditor";
+import AppRouter from "./router/AppRouter";
+import "./styles/global.css";
 
-function App() {
-  return (
-    <div>
-      <Orders />
-      <MenuEditor />
-    </div>
-  );
+export default function App() {
+  return <AppRouter />;
 }
-
-export default App;

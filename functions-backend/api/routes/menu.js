@@ -12,7 +12,9 @@ router.post('/', async (req, res) => {
     const { name, price, category, description, available } = req.body;
 
     if (!name || !price || !category) {
-      return res.status(400).send({ error: 'Missing required fields: name, price, category' });
+      return res.status(400).send({
+        error: 'Missing required fields: name, price, category'
+      });
     }
 
     const docRef = await db.collection('menu').add({
@@ -20,8 +22,9 @@ router.post('/', async (req, res) => {
       price,
       category,
       description: description || "",
-      available: available !== false,
-      createdAt: FieldValue.serverTimestamp()
+      available: available ?? true,   // default TRUE
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp()
     });
 
     res.status(201).send({
@@ -40,10 +43,16 @@ router.post('/', async (req, res) => {
 // ==========================
 router.get('/', async (req, res) => {
   try {
-    const snapshot = await db
-      .collection('menu')
-      .orderBy('createdAt', 'desc')
-      .get();
+    const { category, available } = req.query;
+
+    let query = db.collection('menu');
+
+    if (category) query = query.where("category", "==", category);
+    if (available !== undefined) {
+      query = query.where("available", "==", available === 'true');
+    }
+
+    const snapshot = await query.orderBy('createdAt', 'desc').get();
 
     const items = snapshot.docs.map(doc => ({
       id: doc.id,
@@ -54,6 +63,36 @@ router.get('/', async (req, res) => {
 
   } catch (error) {
     console.error("getMenuItems error:", error);
+    res.status(500).send({ error: error.message });
+  }
+});
+
+// ==========================
+// PATCH → Update Menu Item
+// ==========================
+router.patch('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updates = req.body;
+
+    const docRef = db.collection('menu').doc(id);
+    const doc = await docRef.get();
+
+    if (!doc.exists) {
+      return res.status(404).send({ error: "Menu item not found" });
+    }
+
+    updates.updatedAt = FieldValue.serverTimestamp();
+
+    await docRef.update(updates);
+
+    res.status(200).send({
+      id,
+      message: "Menu item updated successfully"
+    });
+
+  } catch (error) {
+    console.error("updateMenuItem error:", error);
     res.status(500).send({ error: error.message });
   }
 });

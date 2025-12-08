@@ -1,9 +1,8 @@
-const admin = require('firebase-admin');
-const serviceAccount = require('./serviceAccountKey.json');
+const admin = require("firebase-admin");
 
 if (!admin.apps.length) {
   admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount),
+    credential: admin.credential.applicationDefault(),
     databaseURL: "https://swift-stack-444307-m4-default-rtdb.firebaseio.com"
   });
 }

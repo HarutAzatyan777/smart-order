@@ -2,29 +2,67 @@ const express = require('express');
 const router = express.Router();
 const { db } = require('../../admin');
 const { FieldValue } = require('firebase-admin/firestore');
-const { createOrderSchema } = require('../validators/orders.validator');
 
-// =======================
-// CREATE ORDER
-// =======================
+// Allowed order status flow
+const ORDER_STATUSES = [
+  "new",
+  "accepted",
+  "preparing",
+  "ready",
+  "delivered",
+  "closed",
+  "cancelled"
+];
+
+// ===============================
+// Helper: Log History
+// ===============================
+async function logHistory(orderId, action, data = {}) {
+  return db.collection("orders")
+    .doc(orderId)
+    .collection("history")
+    .add({
+      action,
+      ...data,
+      timestamp: FieldValue.serverTimestamp()
+    });
+}
+
+// ===============================
+// CREATE ORDER  (Waiter)
+// ===============================
 router.post('/', async (req, res) => {
   try {
-    // Validate incoming order
-    const parsed = createOrderSchema.safeParse(req.body);
+    const { table, waiterName, items, notes } = req.body;
 
-    if (!parsed.success) {
-      return res.status(400).send({
-        error: parsed.error.format()
-      });
+    if (!table || !items || items.length === 0) {
+      return res.status(400).send({ error: "Missing table or items" });
     }
 
-    const order = parsed.data;
+    const orderData = {
+      table,
+      waiterName: waiterName || "Waiter",
+      items,
+      notes: notes || "",
+      status: "new",
 
-    const docRef = await db.collection('orders').add({
-      ...order,
-      status: "new",                   // waiter sends order → kitchen receives
-      createdAt: FieldValue.serverTimestamp(),
-      updatedAt: FieldValue.serverTimestamp()
+      // Full timeline structure
+      timestamps: {
+        createdAt: FieldValue.serverTimestamp(),
+        acceptedAt: null,
+        preparingAt: null,
+        readyAt: null,
+        deliveredAt: null,
+        closedAt: null
+      }
+    };
+
+    const docRef = await db.collection("orders").add(orderData);
+
+    // Add history entry
+    await logHistory(docRef.id, "order_created", {
+      table,
+      waiterName
     });
 
     res.status(201).send({
@@ -33,28 +71,26 @@ router.post('/', async (req, res) => {
     });
 
   } catch (error) {
-    console.error("Order create error:", error);
+    console.error("Create order error:", error);
     res.status(500).send({ error: error.message });
   }
 });
 
-// =======================
-// GET ORDERS (with filters)
-// =======================
+
+// ===============================
+// GET ORDERS (ALL or FILTERED)
+// ===============================
 router.get('/', async (req, res) => {
   try {
     const { status, table } = req.query;
-    let query = db.collection('orders');
+    let query = db.collection("orders");
 
-    if (status) {
-      query = query.where("status", "==", status);
-    }
+    if (status) query = query.where("status", "==", status);
+    if (table) query = query.where("table", "==", Number(table));
 
-    if (table) {
-      query = query.where("table", "==", Number(table));
-    }
-
-    const snapshot = await query.orderBy("createdAt", "desc").get();
+    const snapshot = await query
+      .orderBy("timestamps.createdAt", "desc")
+      .get();
 
     const list = snapshot.docs.map(doc => ({
       id: doc.id,
@@ -64,60 +100,98 @@ router.get('/', async (req, res) => {
     res.status(200).send(list);
 
   } catch (error) {
-    console.error("Order get error:", error);
+    console.error("Get orders error:", error);
     res.status(500).send({ error: error.message });
   }
 });
 
-// =======================
+
+// ===============================
 // UPDATE ORDER STATUS
-// kitchen → ready
-// waiter → delivered
-// =======================
+// (Kitchen + Waiter + Admin)
+// ===============================
 router.patch('/:id/status', async (req, res) => {
   try {
-    const { id } = req.params;
     const { status } = req.body;
+    const { id } = req.params;
 
-    if (!status) {
-      return res.status(400).send({ error: "Missing 'status' field" });
+    if (!status || !ORDER_STATUSES.includes(status)) {
+      return res.status(400).send({ error: "Invalid or missing status" });
     }
 
-    await db.collection('orders').doc(id).update({
-      status,
-      updatedAt: FieldValue.serverTimestamp()
-    });
-
-    res.status(200).send({
-      message: "Status updated",
-      id,
-      status
-    });
-
-  } catch (error) {
-    console.error("Order status update error:", error);
-    res.status(500).send({ error: error.message });
-  }
-});
-
-// =======================
-// GET SINGLE ORDER
-// =======================
-router.get('/:id', async (req, res) => {
-  try {
-    const doc = await db.collection('orders').doc(req.params.id).get();
+    const docRef = db.collection("orders").doc(id);
+    const doc = await docRef.get();
 
     if (!doc.exists) {
       return res.status(404).send({ error: "Order not found" });
     }
 
+    // Update timeline timestamp automatically
+    const timeField = {
+      accepted: "acceptedAt",
+      preparing: "preparingAt",
+      ready: "readyAt",
+      delivered: "deliveredAt",
+      closed: "closedAt",
+      cancelled: "cancelledAt"
+    }[status] || null;
+
+    const updates = {
+      status,
+      [`timestamps.${timeField}`]: FieldValue.serverTimestamp()
+    };
+
+    await docRef.update(updates);
+
+    // History log
+    await logHistory(id, "status_changed", {
+      oldStatus: doc.data().status,
+      newStatus: status
+    });
+
     res.status(200).send({
-      id: doc.id,
-      ...doc.data()
+      id,
+      status,
+      message: "Status updated"
     });
 
   } catch (error) {
-    console.error("Get single order error:", error);
+    console.error("Status update error:", error);
+    res.status(500).send({ error: error.message });
+  }
+});
+
+
+// ===============================
+// GET A SINGLE ORDER + HISTORY
+// ===============================
+router.get('/:id', async (req, res) => {
+  try {
+    const docRef = db.collection("orders").doc(req.params.id);
+    const doc = await docRef.get();
+
+    if (!doc.exists) {
+      return res.status(404).send({ error: "Order not found" });
+    }
+
+    const historySnap = await docRef
+      .collection("history")
+      .orderBy("timestamp", "asc")
+      .get();
+
+    const history = historySnap.docs.map(h => ({
+      id: h.id,
+      ...h.data()
+    }));
+
+    res.status(200).send({
+      id: doc.id,
+      ...doc.data(),
+      history
+    });
+
+  } catch (error) {
+    console.error("Get order error:", error);
     res.status(500).send({ error: error.message });
   }
 });

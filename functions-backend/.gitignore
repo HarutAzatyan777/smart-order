@@ -1,2 +1,57 @@
+# =========================================
+# Node.js / Backend .gitignore
+# =========================================
+
+# Node modules
 node_modules/
-*.local
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Firebase Admin Key (VERY IMPORTANT)
+serviceAccountKey.json
+
+# Logs
+logs
+*.log
+log.txt
+debug.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Firebase folders
+.firebase/
+functions/node_modules/
+functions/.runtimeconfig.json
+
+# Build / dist
+dist/
+build/
+tmp/
+temp/
+
+# Coverage
+coverage/
+
+# Cache
+.cache/
+.eslintcache
+.parcel-cache
+
+# IDE specific
+.vscode/
+.idea/
+
+# TypeScript (if used)
+*.tsbuildinfo
+
+# Optional: ignore uploads or temporary storage
+uploads/
+storage/

@@ -3,24 +3,28 @@ const router = express.Router();
 const { db } = require('../../admin');
 const { FieldValue } = require('firebase-admin/firestore');
 
-
 // =======================================
 // WAITER: Create New Order
 // =======================================
 router.post('/create', async (req, res) => {
   try {
-    const { table, items, waiterName, notes } = req.body;
+    const { table, items, notes, waiterId, waiterName } = req.body;
 
     if (!table || !items || !Array.isArray(items) || items.length === 0) {
       return res.status(400).send({ error: "Missing table or items" });
     }
 
+    if (!waiterId || !waiterName) {
+      return res.status(400).send({ error: "Missing waiter identity" });
+    }
+
     const orderData = {
       table,
-      waiterName: waiterName || "Waiter",
       items,
       notes: notes || "",
-      status: "submitted",      // waiter submitted order
+      waiterId,
+      waiterName,
+      status: "submitted",
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp()
     };
@@ -38,18 +42,18 @@ router.post('/create', async (req, res) => {
   }
 });
 
-
 // =======================================
-// WAITER: Get All Current Orders
+// WAITER: Get ONLY their own orders
 // =======================================
 router.get('/', async (req, res) => {
   try {
-    const { table, status } = req.query;
+    const { waiterId } = req.query;
 
-    let query = db.collection("orders");
+    if (!waiterId) {
+      return res.status(400).send({ error: "Missing waiterId" });
+    }
 
-    if (table) query = query.where("table", "==", Number(table));
-    if (status) query = query.where("status", "==", status);
+    let query = db.collection("orders").where("waiterId", "==", waiterId);
 
     const snapshot = await query.orderBy("createdAt", "desc").get();
 
@@ -66,9 +70,8 @@ router.get('/', async (req, res) => {
   }
 });
 
-
 // =======================================
-// WAITER: Update Item Quantities or Add New Items
+// UPDATE ITEMS
 // =======================================
 router.patch('/:id/items', async (req, res) => {
   try {
@@ -84,10 +87,7 @@ router.patch('/:id/items', async (req, res) => {
       updatedAt: FieldValue.serverTimestamp()
     });
 
-    res.status(200).send({
-      message: "Items updated",
-      id
-    });
+    res.status(200).send({ message: "Items updated", id });
 
   } catch (error) {
     console.error("Waiter update items error:", error);
@@ -95,9 +95,8 @@ router.patch('/:id/items', async (req, res) => {
   }
 });
 
-
 // =======================================
-// WAITER: Mark Order as Delivered
+// MARK DELIVERED
 // =======================================
 router.patch('/:id/deliver', async (req, res) => {
   try {
@@ -108,10 +107,7 @@ router.patch('/:id/deliver', async (req, res) => {
       updatedAt: FieldValue.serverTimestamp()
     });
 
-    res.status(200).send({
-      message: "Order delivered",
-      id
-    });
+    res.status(200).send({ message: "Order delivered", id });
 
   } catch (error) {
     console.error("Waiter deliver error:", error);
@@ -119,9 +115,8 @@ router.patch('/:id/deliver', async (req, res) => {
   }
 });
 
-
 // =======================================
-// WAITER: Cancel Order
+// CANCEL ORDER
 // =======================================
 router.patch('/:id/cancel', async (req, res) => {
   try {
@@ -132,16 +127,12 @@ router.patch('/:id/cancel', async (req, res) => {
       updatedAt: FieldValue.serverTimestamp()
     });
 
-    res.status(200).send({
-      message: "Order cancelled",
-      id
-    });
+    res.status(200).send({ message: "Order cancelled", id });
 
   } catch (error) {
     console.error("Waiter cancel error:", error);
     res.status(500).send({ error: error.message });
   }
 });
-
 
 module.exports = router;

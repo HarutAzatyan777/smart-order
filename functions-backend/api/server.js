@@ -6,41 +6,31 @@ const ordersRouter = require('./routes/orders');
 const menuRouter = require('./routes/menu');
 const kitchenRouter = require('./routes/kitchen');
 const waiterRouter = require('./routes/waiter');
-const adminRouter = require('./routes/admin'); // <-- Admin index.js combines all admin routes
+const adminRouter = require('./routes/admin');
+const waitersAdminRouter = require('./routes/admin/waiters'); // <-- ADD THIS
 
 const app = express();
 
-// CORS (allows any origin; safe for Firebase cloud functions)
+// CORS
 app.use(cors({ origin: true }));
-
-// Parse JSON input
 app.use(express.json());
 
-// Health-check
+// Health check
 app.get('/health', (req, res) => {
   res.send({ status: "OK", timestamp: Date.now() });
 });
 
-// ==========================
-// PUBLIC ROUTES
-// ==========================
+// Public routes
 app.use('/orders', ordersRouter);
 app.use('/menu', menuRouter);
-
-// Kitchen panel
 app.use('/kitchen', kitchenRouter);
-
-// Waiter panel
 app.use('/waiter', waiterRouter);
 
-// ==========================
-// ADMIN ROUTES (protected by adminAuth middleware inside adminRouter)
-// ==========================
+// Admin
 app.use('/admin', adminRouter);
+app.use('/waiters', waitersAdminRouter);  // <-- REGISTER THE ROUTE HERE
 
-// ==========================
-// GLOBAL ERROR HANDLER (safe for production)
-// ==========================
+// Error handler
 app.use((err, req, res, next) => {
   console.error("🔥 SERVER ERROR:", err);
   res.status(500).send({

@@ -1,32 +1,59 @@
 import { useState } from "react";
 import { createOrder } from "../../api/ordersApi";
+import { useNavigate } from "react-router-dom";
 
 export default function WaiterOrderCreate() {
   const [table, setTable] = useState("");
   const [items, setItems] = useState("");
   const [notes, setNotes] = useState("");
 
+  const navigate = useNavigate();
+
   const handleSubmit = async () => {
+    const waiterId = localStorage.getItem("waiterId");
+    const waiterName = localStorage.getItem("waiterName");
+
+    // If waiter is not logged in
+    if (!waiterId || !waiterName) {
+      alert("You must log in as a waiter first.");
+      return;
+    }
+
+    // Clean items text
     const cleanedItems = items
       .split(",")
       .map((x) => x.trim())
       .filter((x) => x.length > 0);
 
+    // Validation
+    if (!table || Number(table) <= 0) {
+      alert("Please enter a valid table number.");
+      return;
+    }
+
+    if (cleanedItems.length === 0) {
+      alert("Please enter at least one item.");
+      return;
+    }
+
     const payload = {
-      table: Number(table),            // store as number
-      waiterName: "Waiter",            // backend default, but we send explicitly
-      items: cleanedItems,             // clean list
-      notes: notes.trim()              // avoid trailing spaces
+      table: Number(table),
+      items: cleanedItems,
+      notes: notes.trim(),
+      waiterId,            // attach the logged-in waiter
+      waiterName,
     };
 
     console.log("Submitting order payload:", payload);
 
     try {
       await createOrder(payload);
-      window.location.href = "/waiter/home";
+      navigate("/waiter/home");
     } catch (err) {
       console.error("Create order error:", err);
-      alert("Could not create order. Check console.");
+      const backendError =
+        err.response?.data?.error || "Could not create order. Check console.";
+      alert(backendError);
     }
   };
 
@@ -56,9 +83,16 @@ export default function WaiterOrderCreate() {
         style={{ display: "block", width: 300, height: 60, marginBottom: 20 }}
       />
 
-      <button 
+      <button
         onClick={handleSubmit}
-        style={{ padding: "10px 20px", cursor: "pointer" }}
+        style={{
+          padding: "10px 20px",
+          cursor: "pointer",
+          background: "#2ECC71",
+          color: "#fff",
+          border: "none",
+          borderRadius: 6
+        }}
       >
         Send to Kitchen
       </button>

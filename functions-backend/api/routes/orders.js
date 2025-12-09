@@ -1,7 +1,11 @@
 const express = require('express');
 const router = express.Router();
+const cors = require("cors");
 const { db } = require('../../admin');
 const { FieldValue } = require('firebase-admin/firestore');
+
+// Enable CORS for all routes inside this router
+router.use(cors({ origin: true }));
 
 // Allowed order status flow
 const ORDER_STATUSES = [
@@ -29,7 +33,7 @@ async function logHistory(orderId, action, data = {}) {
 }
 
 // ===============================
-// CREATE ORDER  (Waiter)
+// CREATE ORDER (Waiter)
 // ===============================
 router.post('/', async (req, res) => {
   try {
@@ -46,20 +50,22 @@ router.post('/', async (req, res) => {
       notes: notes || "",
       status: "new",
 
-      // Full timeline structure
+      // FIX: createdAt MUST be at root level for Firestore queries
+      createdAt: FieldValue.serverTimestamp(),
+
+      // Other timestamps go inside this object (sorting is not done here)
       timestamps: {
-        createdAt: FieldValue.serverTimestamp(),
         acceptedAt: null,
         preparingAt: null,
         readyAt: null,
         deliveredAt: null,
-        closedAt: null
+        closedAt: null,
+        cancelledAt: null
       }
     };
 
     const docRef = await db.collection("orders").add(orderData);
 
-    // Add history entry
     await logHistory(docRef.id, "order_created", {
       table,
       waiterName
@@ -76,21 +82,19 @@ router.post('/', async (req, res) => {
   }
 });
 
-
 // ===============================
 // GET ORDERS (ALL or FILTERED)
 // ===============================
 router.get('/', async (req, res) => {
   try {
     const { status, table } = req.query;
-    let query = db.collection("orders");
+    let queryRef = db.collection("orders");
 
-    if (status) query = query.where("status", "==", status);
-    if (table) query = query.where("table", "==", Number(table));
+    if (status) queryRef = queryRef.where("status", "==", status);
+    if (table) queryRef = queryRef.where("table", "==", Number(table));
 
-    const snapshot = await query
-      .orderBy("timestamps.createdAt", "desc")
-      .get();
+    // FIX: Sorting by root-level createdAt
+    const snapshot = await queryRef.orderBy("createdAt", "desc").get();
 
     const list = snapshot.docs.map(doc => ({
       id: doc.id,
@@ -105,10 +109,8 @@ router.get('/', async (req, res) => {
   }
 });
 
-
 // ===============================
 // UPDATE ORDER STATUS
-// (Kitchen + Waiter + Admin)
 // ===============================
 router.patch('/:id/status', async (req, res) => {
   try {
@@ -126,7 +128,6 @@ router.patch('/:id/status', async (req, res) => {
       return res.status(404).send({ error: "Order not found" });
     }
 
-    // Update timeline timestamp automatically
     const timeField = {
       accepted: "acceptedAt",
       preparing: "preparingAt",
@@ -136,14 +137,14 @@ router.patch('/:id/status', async (req, res) => {
       cancelled: "cancelledAt"
     }[status] || null;
 
-    const updates = {
-      status,
-      [`timestamps.${timeField}`]: FieldValue.serverTimestamp()
-    };
+    const updates = { status };
+
+    if (timeField) {
+      updates[`timestamps.${timeField}`] = FieldValue.serverTimestamp();
+    }
 
     await docRef.update(updates);
 
-    // History log
     await logHistory(id, "status_changed", {
       oldStatus: doc.data().status,
       newStatus: status
@@ -160,7 +161,6 @@ router.patch('/:id/status', async (req, res) => {
     res.status(500).send({ error: error.message });
   }
 });
-
 
 // ===============================
 // GET A SINGLE ORDER + HISTORY

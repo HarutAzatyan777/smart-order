@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
 // HOME
 import Home from "../pages/home/Home";
@@ -11,10 +11,21 @@ import WaiterOrderCreate from "../pages/waiter/WaiterOrderCreate";
 // KITCHEN
 import KitchenDashboard from "../pages/kitchen/KitchenDashboard";
 
+// ADMIN
+import AdminDashboard from "../pages/AdminDashboard/AdminDashboard";
+import AdminLogin from "../pages/AdminDashboard/AdminLogin";
+
+function AdminProtectedRoute({ children }) {
+  const token = localStorage.getItem("adminToken");
+  if (!token) return <Navigate to="/admin/login" replace />;
+  return children;
+}
+
 export default function AppRouter() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* HOME */}
         <Route path="/" element={<Home />} />
 
         {/* WAITER */}
@@ -24,6 +35,19 @@ export default function AppRouter() {
 
         {/* KITCHEN */}
         <Route path="/kitchen" element={<KitchenDashboard />} />
+
+        {/* ADMIN LOGIN */}
+        <Route path="/admin/login" element={<AdminLogin />} />
+
+        {/* ADMIN DASHBOARD (PROTECTED) */}
+        <Route
+          path="/admin"
+          element={
+            <AdminProtectedRoute>
+              <AdminDashboard />
+            </AdminProtectedRoute>
+          }
+        />
       </Routes>
     </BrowserRouter>
   );

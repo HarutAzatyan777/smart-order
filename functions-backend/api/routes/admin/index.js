@@ -2,8 +2,20 @@ const express = require('express');
 const router = express.Router();
 const adminAuth = require('../../middleware/adminAuth');
 
-// Apply adminAuth to all admin panel routes
-router.use(adminAuth);
+// ==========================
+// OPEN ROUTES (NO AUTH)
+// ==========================
+
+// Admin login route (must NOT be protected)
+router.use('/login', require('./login'));
+
+
+// ==========================
+// PROTECTED ROUTES (AUTH REQUIRED)
+// ==========================
+
+router.use(adminAuth);  // <-- Protect everything below
+
 
 // Admin user info
 router.get('/me', (req, res) => {
@@ -14,7 +26,7 @@ router.get('/me', (req, res) => {
   });
 });
 
-// Subrouters
+// Subrouters (protected)
 router.use('/waiters', require('./waiters'));
 router.use('/menu', require('./menu'));
 router.use('/orders', require('./orders'));

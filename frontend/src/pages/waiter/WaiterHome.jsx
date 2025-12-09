@@ -1,18 +1,51 @@
+import { Link } from "react-router-dom";
 import useOrdersRealtime from "../../hooks/useOrdersRealtime";
+import "./WaiterHome.css";
 
 export default function WaiterHome() {
-  const orders = useOrdersRealtime();
+  const orders = useOrdersRealtime() || [];
+
+  // Sort newest to oldest using normalized createdAt
+  const sorted = [...orders].sort((a, b) => {
+    const tA = a.createdAt ? a.createdAt.getTime() : 0;
+    const tB = b.createdAt ? b.createdAt.getTime() : 0;
+    return tB - tA;
+  });
 
   return (
-    <div>
-      <h2>Your Orders</h2>
+    <div className="waiter-home">
+      <h2 className="waiter-title">Your Orders</h2>
 
-      <a href="/waiter/create">Create New Order</a>
+      <Link to="/waiter/create" className="create-order-btn">
+        Create New Order
+      </Link>
 
-      {orders.map((o) => (
-        <div key={o.id}>
-          <p>Table: {o.table}</p>
-          <p>Status: {o.status}</p>
+      {sorted.length === 0 && (
+        <p className="empty-message">No orders yet.</p>
+      )}
+
+      {sorted.map((o) => (
+        <div key={o.id} className="order-card">
+          <p>
+            <strong>Table:</strong> {o.table}
+          </p>
+          <p>
+            <strong>Status:</strong> {o.status}
+          </p>
+
+          {o.items && (
+            <p className="order-items">
+              <strong>Items:</strong> {Array.isArray(o.items)
+                ? o.items.map(i => i.name ? `${i.name} (x${i.qty})` : i).join(", ")
+                : ""}
+            </p>
+          )}
+
+          {o.notes && (
+            <p className="order-items">
+              <strong>Notes:</strong> {o.notes}
+            </p>
+          )}
         </div>
       ))}
     </div>

@@ -3,31 +3,153 @@ import "./Home.css";
 
 export default function Home() {
   return (
-    <div className="home-container">
+    <div className="home-page">
+      <section className="hero">
+        <div className="hero-content">
+          <p className="eyebrow">Service in sync • floor, kitchen, and reporting</p>
+          <h1>Smart Order System</h1>
+          <p className="lead">
+            Run your restaurant in real time. Keep tables moving, tickets clear,
+            and the kitchen focused with a single source of truth.
+          </p>
+          <div className="cta-row">
+            <Link to="/waiter" className="btn primary">
+              Open Waiter Panel
+            </Link>
+            <Link to="/kitchen" className="btn ghost">
+              View Kitchen Dashboard
+            </Link>
+          </div>
+          <div className="stat-row">
+            <div className="stat">
+              <span>Live</span>
+              Ticket updates across devices
+            </div>
+            <div className="stat">
+              <span>Coordinated</span>
+              FOH to BOH handoffs
+            </div>
+            <div className="stat">
+              <span>Audit-ready</span>
+              Export shift reports anytime
+            </div>
+          </div>
+        </div>
 
-      <header className="home-header">
-        <h1>Smart Order System</h1>
-        <p className="subtitle">Fast. Simple. Real-Time Restaurant Management.</p>
-      </header>
+        <div className="panel-grid">
+          <Link to="/waiter" className="panel-card waiter-card">
+            <div className="pill">Front-of-house</div>
+            <h3>Waiter Panel</h3>
+            <p>Create tickets, split seats, and notify the kitchen instantly.</p>
+            <div className="mini-tags">
+              <span>Tables</span>
+              <span>Orders</span>
+              <span>Notes</span>
+            </div>
+          </Link>
 
-      <div className="home-sections">
+          <Link to="/kitchen" className="panel-card kitchen-card">
+            <div className="pill">Back-of-house</div>
+            <h3>Kitchen Dashboard</h3>
+            <p>Live queue with priorities, fires, ready states, and rush calls.</p>
+            <div className="mini-feed">
+              <div className="feed-item">
+                <div className="feed-dot hot" />
+                <div>
+                  <strong>#42</strong> • 2x Margherita — Fire
+                </div>
+              </div>
+              <div className="feed-item">
+                <div className="feed-dot" />
+                <div>
+                  <strong>#39</strong> • Caesar Salad — Prep
+                </div>
+              </div>
+              <div className="feed-item">
+                <div className="feed-dot ready" />
+                <div>
+                  <strong>#36</strong> • Steak Frites — Ready
+                </div>
+              </div>
+            </div>
+          </Link>
 
-        <Link to="/waiter" className="home-card waiter">
-          <h2>Waiter Panel</h2>
-          <p>Create orders and manage tables</p>
-        </Link>
+          <Link to="/admin" className="panel-card admin-card">
+            <div className="pill">Control</div>
+            <h3>Admin Panel</h3>
+            <p>Menus, staff access, and reporting to keep the floor aligned.</p>
+            <div className="mini-tags">
+              <span>Menus</span>
+              <span>Staff</span>
+              <span>Reports</span>
+            </div>
+          </Link>
+        </div>
+      </section>
 
-        <Link to="/kitchen" className="home-card kitchen">
-          <h2>Kitchen Dashboard</h2>
-          <p>Real-time order tracking</p>
-        </Link>
+      <section className="feature-section">
+        <div className="feature-header">
+          <h2>Built for service peaks</h2>
+          <p>
+            Keep guests happy while the kitchen stays focused. Smart Order gives
+            everyone the same picture of the night.
+          </p>
+        </div>
 
-        <Link to="/admin" className="home-card admin">
-          <h2>Admin Panel</h2>
-          <p>Menu, users, reports</p>
-        </Link>
+        <div className="feature-grid">
+          <div className="feature-card">
+            <h4>Ticket clarity</h4>
+            <p>Readable, timestamped tickets that reduce chatter on the line.</p>
+          </div>
+          <div className="feature-card">
+            <h4>Menu agility</h4>
+            <p>86 items or roll out specials instantly from the admin panel.</p>
+          </div>
+          <div className="feature-card">
+            <h4>Shift reporting</h4>
+            <p>Export end-of-night summaries without leaving the floor.</p>
+          </div>
+          <div className="feature-card">
+            <h4>Table awareness</h4>
+            <p>Open tickets by table, seat, or guest so nothing gets lost.</p>
+          </div>
+        </div>
+      </section>
 
-      </div>
+      <section className="flow">
+        <div className="flow-card">
+          <div>
+            <p className="pill soft">How it flows</p>
+            <h3>From table to ticket to pickup</h3>
+            <p className="flow-copy">
+              A quick snapshot for new team members. Start in the panel that
+              matches your role.
+            </p>
+          </div>
+          <ol>
+            <li>
+              <span>1</span>
+              Seat the table and open the ticket in the Waiter Panel.
+            </li>
+            <li>
+              <span>2</span>
+              Kitchen sees it immediately, fires items, and marks ready.
+            </li>
+            <li>
+              <span>3</span>
+              Admin reviews the shift exports and updates menus for tomorrow.
+            </li>
+          </ol>
+          <div className="flow-cta">
+            <Link to="/waiter" className="btn primary">
+              Jump into service
+            </Link>
+            <Link to="/admin" className="btn ghost">
+              Configure admin
+            </Link>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }

@@ -27,6 +27,13 @@ export default function AdminDashboard() {
   const [menuCategory, setMenuCategory] = useState("");
   const [menuDescription, setMenuDescription] = useState("");
 
+  // edit menu fields
+  const [editingMenuId, setEditingMenuId] = useState(null);
+  const [editMenuName, setEditMenuName] = useState("");
+  const [editMenuPrice, setEditMenuPrice] = useState("");
+  const [editMenuCategory, setEditMenuCategory] = useState("");
+  const [editMenuDescription, setEditMenuDescription] = useState("");
+
   const [error, setError] = useState("");
 
   // Check admin token
@@ -75,6 +82,8 @@ export default function AdminDashboard() {
       return;
     }
 
+    setError("");
+
     await fetch(WAITER_API, {
       method: "POST",
       headers: {
@@ -108,6 +117,8 @@ export default function AdminDashboard() {
       return;
     }
 
+    setError("");
+
     const payload = {
       name: menuName,
       price: Number(menuPrice),
@@ -130,6 +141,52 @@ export default function AdminDashboard() {
     setMenuCategory("");
     setMenuDescription("");
 
+    loadMenu();
+  };
+
+  const startEditMenuItem = (item) => {
+    setEditingMenuId(item.id);
+    setEditMenuName(item.name);
+    setEditMenuPrice(item.price);
+    setEditMenuCategory(item.category);
+    setEditMenuDescription(item.description || "");
+  };
+
+  const cancelEditMenuItem = () => {
+    setEditingMenuId(null);
+    setEditMenuName("");
+    setEditMenuPrice("");
+    setEditMenuCategory("");
+    setEditMenuDescription("");
+  };
+
+  const saveMenuItem = async () => {
+    if (!editingMenuId) return;
+
+    if (!editMenuName.trim() || !editMenuPrice || !editMenuCategory.trim()) {
+      setError("Menu name, price, and category required");
+      return;
+    }
+
+    const payload = {
+      name: editMenuName,
+      price: Number(editMenuPrice),
+      category: editMenuCategory,
+      description: editMenuDescription,
+    };
+
+    await fetch(`${MENU_API}/${editingMenuId}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    setError("");
+
+    cancelEditMenuItem();
     loadMenu();
   };
 
@@ -233,17 +290,64 @@ export default function AdminDashboard() {
             .filter((m) => m.category === cat)
             .map((item) => (
               <div key={item.id} className="menu-card">
-                <p>
-                  <strong>{item.name}</strong> ({item.price} AMD)
-                </p>
-                <p>{item.description}</p>
-
-                <button
-                  className="delete-button"
-                  onClick={() => deleteMenuItem(item.id)}
-                >
-                  Delete
-                </button>
+                {editingMenuId === item.id ? (
+                  <>
+                    <input
+                      className="admin-input"
+                      value={editMenuName}
+                      onChange={(e) => setEditMenuName(e.target.value)}
+                      placeholder="Item Name"
+                    />
+                    <input
+                      className="admin-input"
+                      type="number"
+                      value={editMenuPrice}
+                      onChange={(e) => setEditMenuPrice(e.target.value)}
+                      placeholder="Price"
+                    />
+                    <input
+                      className="admin-input"
+                      value={editMenuCategory}
+                      onChange={(e) => setEditMenuCategory(e.target.value)}
+                      placeholder="Category"
+                    />
+                    <textarea
+                      className="admin-input"
+                      value={editMenuDescription}
+                      onChange={(e) => setEditMenuDescription(e.target.value)}
+                      placeholder="Description"
+                    />
+                    <div className="menu-actions">
+                      <button className="save-button" onClick={saveMenuItem}>
+                        Save
+                      </button>
+                      <button className="cancel-button" onClick={cancelEditMenuItem}>
+                        Cancel
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <p>
+                      <strong>{item.name}</strong> ({item.price} AMD)
+                    </p>
+                    <p>{item.description}</p>
+                    <div className="menu-actions">
+                      <button
+                        className="edit-button"
+                        onClick={() => startEditMenuItem(item)}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        className="delete-button"
+                        onClick={() => deleteMenuItem(item.id)}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             ))}
         </div>

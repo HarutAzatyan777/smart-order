@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { apiUrl } from "../config/api";
 
 export default function useMenu() {
   const [menu, setMenu] = useState([]);
@@ -10,9 +11,7 @@ export default function useMenu() {
     setError("");
 
     try {
-      const res = await fetch(
-        "http://localhost:5001/swift-stack-444307-m4/us-central1/api/menu"
-      );
+      const res = await fetch(apiUrl("menu"));
 
       if (!res.ok) {
         throw new Error(`Menu request failed (${res.status})`);

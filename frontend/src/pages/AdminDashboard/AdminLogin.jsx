@@ -1,7 +1,7 @@
+import "./AdminLogin.css";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { signInWithEmailAndPassword } from "firebase/auth";
-import { auth } from "../../firebase";
+import { apiUrl } from "../../config/api";
 
 export default function AdminLogin() {
   const [email, setEmail] = useState("");
@@ -9,44 +9,64 @@ export default function AdminLogin() {
   const [error, setError] = useState("");
   const navigate = useNavigate();
 
+  const LOGIN_API = apiUrl("admin/login");
+
   const handleLogin = async () => {
     try {
-      // Firebase Email/PIN login
-      const userCred = await signInWithEmailAndPassword(auth, email, pin);
+      setError("");
+      const res = await fetch(LOGIN_API, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, pin })
+      });
 
-      // Get Firebase ID token
-      const token = await userCred.user.getIdToken();
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.error || "Invalid login");
+      }
 
-      // Save token to browser
-      localStorage.setItem("adminToken", token);
+      localStorage.setItem("adminToken", data.token);
+      localStorage.setItem("adminEmail", data.email || email);
 
       navigate("/admin");
     } catch (err) {
-      setError("Invalid login");
+      setError(err.message || "Invalid login");
     }
   };
 
   return (
-    <div style={{ padding: 20 }}>
-      <h1>Admin Login</h1>
+    <div className="admin-login-page">
+      <div className="admin-login-card">
+        <p className="eyebrow">Admin console</p>
+        <h1>Sign in</h1>
+        <p className="muted">Use the admin email and PIN provided for your environment.</p>
 
-      <input
-        type="text"
-        placeholder="Admin Email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-      />
+        <div className="field">
+          <label>Email</label>
+          <input
+            type="text"
+            placeholder="admin@smartorder.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+        </div>
 
-      <input
-        type="password"
-        placeholder="PIN"
-        value={pin}
-        onChange={(e) => setPin(e.target.value)}
-      />
+        <div className="field">
+          <label>PIN</label>
+          <input
+            type="password"
+            placeholder="Admin PIN"
+            value={pin}
+            onChange={(e) => setPin(e.target.value)}
+          />
+        </div>
 
-      <button onClick={handleLogin}>Login</button>
+        <button className="primary-btn" onClick={handleLogin}>
+          Login
+        </button>
 
-      {error && <p style={{ color: "red" }}>{error}</p>}
+        {error ? <p className="error-text">{error}</p> : null}
+      </div>
     </div>
   );
 }

@@ -6,7 +6,9 @@ export default function Home() {
     <div className="home-page">
       <section className="hero">
         <div className="hero-content">
-          <p className="eyebrow">Service in sync • floor, kitchen, and reporting</p>
+          <p className="eyebrow">
+            Service in sync &bull; floor, kitchen, and reporting
+          </p>
           <h1>Smart Order System</h1>
           <p className="lead">
             Run your restaurant in real time. Keep tables moving, tickets clear,
@@ -56,19 +58,19 @@ export default function Home() {
               <div className="feed-item">
                 <div className="feed-dot hot" />
                 <div>
-                  <strong>#42</strong> • 2x Margherita — Fire
+                    <strong>#42</strong> &bull; 2x Margherita &mdash; Fire
                 </div>
               </div>
               <div className="feed-item">
                 <div className="feed-dot" />
                 <div>
-                  <strong>#39</strong> • Caesar Salad — Prep
+                    <strong>#39</strong> &bull; Caesar Salad &mdash; Prep
                 </div>
               </div>
               <div className="feed-item">
                 <div className="feed-dot ready" />
                 <div>
-                  <strong>#36</strong> • Steak Frites — Ready
+                    <strong>#36</strong> &bull; Steak Frites &mdash; Ready
                 </div>
               </div>
             </div>

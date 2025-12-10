@@ -1,28 +1,66 @@
 import { useMemo, useState } from "react";
 import useOrdersRealtime from "../../hooks/useOrdersRealtime";
 import { updateOrderStatus } from "../../api/ordersApi";
+import NotificationStack from "../../components/NotificationStack";
+import useNotificationCenter from "../../hooks/useNotificationCenter";
+import useOrderChangeAlerts from "../../hooks/useOrderChangeAlerts";
 import "./KitchenDashboard.css";
 
 const statusConfig = [
-  { key: "new", label: "Incoming" },
-  { key: "accepted", label: "Accepted" },
-  { key: "preparing", label: "Preparing" },
-  { key: "ready", label: "Ready" },
-  { key: "delivered", label: "Delivered" },
-  { key: "closed", label: "Closed" }
+  { key: "submitted", label: "Submitted", helper: "New from waiter app", isActive: true },
+  { key: "new", label: "Incoming", helper: "Awaiting acknowledgement", isActive: true },
+  { key: "accepted", label: "Accepted", helper: "Ticket acknowledged", isActive: true },
+  { key: "preparing", label: "Preparing", helper: "On the line", isActive: true },
+  { key: "ready", label: "Ready", helper: "Pass to runner", isActive: true },
+  { key: "delivered", label: "Delivered", helper: "Runner has table", isActive: false },
+  { key: "closed", label: "Closed", helper: "Fully settled", isActive: false },
+  { key: "cancelled", label: "Cancelled", helper: "Void or comped", isActive: false }
 ];
 
+function normalizeStatus(status) {
+  if (!status) return "new";
+  if (status === "canceled") return "cancelled";
+  return status;
+}
+
+function isOrderLagging(order) {
+  return order.createdAt && Date.now() - order.createdAt.getTime() > 15 * 60 * 1000;
+}
+
 export default function KitchenDashboard() {
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const orders = useOrdersRealtime() || [];
+  const { notifications, notify, dismiss } = useNotificationCenter();
   const [loadingId, setLoadingId] = useState(null);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [viewFilter, setViewFilter] = useState("active");
+
+  const normalizedOrders = useMemo(
+    () =>
+      orders.map((o) => ({
+        ...o,
+        status: normalizeStatus(o.status)
+      })),
+    [orders]
+  );
+
+  useOrderChangeAlerts(normalizedOrders, notify);
+
+  const visibleStatuses = useMemo(() => {
+    if (viewFilter === "all") return statusConfig;
+    return statusConfig.filter((s) => s.isActive !== false);
+  }, [viewFilter]);
 
   const filteredOrders = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
-    if (!term) return orders;
+    const visibleKeys = new Set(visibleStatuses.map((s) => s.key));
 
-    return orders.filter((o) => {
+    return normalizedOrders.filter((o) => {
+      if (!visibleKeys.has(o.status)) return false;
+
+      if (!term) return true;
+
       const items = o.items
         ?.map((i) => i?.name || i)
         .join(" ")
@@ -36,7 +74,7 @@ export default function KitchenDashboard() {
         waiter.includes(term)
       );
     });
-  }, [orders, searchTerm]);
+  }, [normalizedOrders, searchTerm, visibleStatuses]);
 
   const statusCounts = useMemo(() => {
     const counts = statusConfig.reduce((acc, cur) => ({ ...acc, [cur.key]: 0 }), {});
@@ -44,6 +82,26 @@ export default function KitchenDashboard() {
       if (counts[o.status] !== undefined) counts[o.status] += 1;
     });
     return counts;
+  }, [filteredOrders]);
+
+  const kpis = useMemo(() => {
+    const activeKeys = new Set(statusConfig.filter((s) => s.isActive !== false).map((s) => s.key));
+    let overdue = 0;
+    let ready = 0;
+    let active = 0;
+
+    filteredOrders.forEach((order) => {
+      if (activeKeys.has(order.status)) active += 1;
+      if (order.status === "ready") ready += 1;
+      if (isOrderLagging(order)) overdue += 1;
+    });
+
+    return {
+      total: filteredOrders.length,
+      active,
+      ready,
+      overdue
+    };
   }, [filteredOrders]);
 
   const handleUpdate = async (id, status) => {
@@ -61,11 +119,16 @@ export default function KitchenDashboard() {
 
   return (
     <div className="kitchen-dashboard">
+      <NotificationStack notifications={notifications} onDismiss={dismiss} />
       <div className="kitchen-top">
         <div className="kitchen-top-left">
           <div>
             <h1 className="kitchen-title">Kitchen Dashboard</h1>
             <p className="kitchen-subtitle">Track and advance every order in real time.</p>
+            <div className="top-meta">
+              <span className="live-dot">Live</span>
+              <span className="pill subtle">Auto-refreshing from Firestore</span>
+            </div>
           </div>
 
           <div className="search-box">
@@ -83,20 +146,63 @@ export default function KitchenDashboard() {
           </div>
         </div>
 
-        <div className="status-pills">
-          {statusConfig.map((status) => (
-            <div key={status.key} className="status-pill">
-              <span className="pill-label">{status.label}</span>
-              <span className="pill-count">{statusCounts[status.key] || 0}</span>
-            </div>
-          ))}
+        <div className="kitchen-top-right">
+          <div className="view-toggle">
+            <button
+              className={viewFilter === "active" ? "active" : ""}
+              onClick={() => setViewFilter("active")}
+            >
+              Active
+            </button>
+            <button
+              className={viewFilter === "all" ? "active" : ""}
+              onClick={() => setViewFilter("all")}
+            >
+              All statuses
+            </button>
+          </div>
+
+          <div className="status-pills">
+            {visibleStatuses.map((status) => (
+              <div key={status.key} className="status-pill">
+                <div>
+                  <span className="pill-label">{status.label}</span>
+                  {status.helper ? <p className="pill-helper">{status.helper}</p> : null}
+                </div>
+                <span className="pill-count">{statusCounts[status.key] || 0}</span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
       {error && <p className="error-message">{error}</p>}
 
+      <div className="kpi-grid">
+        <div className="kpi-card">
+          <p className="kpi-label">Tickets on deck</p>
+          <strong>{kpis.active}</strong>
+          <span className="kpi-hint">New, accepted, or in prep</span>
+        </div>
+        <div className="kpi-card">
+          <p className="kpi-label">Ready for pickup</p>
+          <strong>{kpis.ready}</strong>
+          <span className="kpi-hint">Hand off to runners</span>
+        </div>
+        <div className={`kpi-card${kpis.overdue ? " alert" : ""}`}>
+          <p className="kpi-label">Lagging tickets</p>
+          <strong>{kpis.overdue}</strong>
+          <span className="kpi-hint">Over 15 minutes old</span>
+        </div>
+        <div className="kpi-card">
+          <p className="kpi-label">Visible tickets</p>
+          <strong>{kpis.total}</strong>
+          <span className="kpi-hint">After search & filter</span>
+        </div>
+      </div>
+
       <div className="sections-wrap">
-        {statusConfig.map((status) => (
+        {visibleStatuses.map((status) => (
           <Section
             key={status.key}
             title={status.label}
@@ -105,6 +211,7 @@ export default function KitchenDashboard() {
             handleUpdate={handleUpdate}
             loadingId={loadingId}
             actions={getActionsForStatus(status.key)}
+            helper={status.helper}
           />
         ))}
       </div>
@@ -114,12 +221,14 @@ export default function KitchenDashboard() {
 
 function getActionsForStatus(status) {
   const map = {
+    submitted: [{ label: "Accept Order", status: "accepted" }],
     new: [{ label: "Accept Order", status: "accepted" }],
     accepted: [{ label: "Start Preparing", status: "preparing" }],
     preparing: [{ label: "Mark as Ready", status: "ready" }],
     ready: [{ label: "Deliver to Table", status: "delivered" }],
     delivered: [{ label: "Close Order", status: "closed" }],
-    closed: []
+    closed: [],
+    cancelled: []
   };
 
   return map[status] || [];
@@ -141,7 +250,7 @@ function getAgeLabel(date) {
 /* ===============================
    Section Component
 =============================== */
-function Section({ title, orders, filter, handleUpdate, actions, loadingId }) {
+function Section({ title, helper, orders, filter, handleUpdate, actions, loadingId }) {
   const filtered = [...orders]
     .filter((o) => o.status === filter)
     .sort((a, b) => {
@@ -153,7 +262,10 @@ function Section({ title, orders, filter, handleUpdate, actions, loadingId }) {
   return (
     <section className="kitchen-section">
       <div className="section-heading">
-        <h2 className="section-title">{title}</h2>
+        <div>
+          <h2 className="section-title">{title}</h2>
+          {helper ? <p className="section-helper">{helper}</p> : null}
+        </div>
         <span className="section-count">{filtered.length} orders</span>
       </div>
 
@@ -186,8 +298,7 @@ function OrderCard({ order, onAction, actions, loadingId }) {
     ? order.items.reduce((sum, item) => sum + (item.qty || 1), 0)
     : 0;
 
-  const isLagging =
-    order.createdAt && Date.now() - order.createdAt.getTime() > 15 * 60 * 1000;
+  const isLagging = isOrderLagging(order);
 
   return (
     <div className={`order-card${isLagging ? " overdue" : ""}`}>

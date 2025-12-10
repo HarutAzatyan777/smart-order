@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { createOrder } from "../../api/ordersApi";
 import useMenu from "../../hooks/useMenu";
 import "./WaiterOrderCreate.css";
@@ -17,6 +17,8 @@ export default function WaiterOrderCreate() {
   const navigate = useNavigate();
 
   const waiterName = localStorage.getItem("waiterName") || "Unknown waiter";
+
+  const getItemKey = (item) => item?.id || item?.sku || item?.name;
 
   const filteredMenu = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -44,9 +46,13 @@ export default function WaiterOrderCreate() {
   );
 
   const addToCart = (item) => {
+    if (item.available === false) return;
+    const key = getItemKey(item);
+    if (!key) return;
+
     setCart((prev) => ({
       ...prev,
-      [item.id]: { ...item, qty: (prev[item.id]?.qty || 0) + 1 }
+      [key]: { ...item, id: key, qty: (prev[key]?.qty || 0) + 1 }
     }));
   };
 
@@ -75,6 +81,12 @@ export default function WaiterOrderCreate() {
   };
 
   const clearCart = () => setCart({});
+
+  const listify = (value) => {
+    if (!value) return null;
+    if (Array.isArray(value)) return value.filter(Boolean).join(", ");
+    return String(value);
+  };
 
   const handleSubmit = async () => {
     setSubmitError("");
@@ -140,9 +152,14 @@ export default function WaiterOrderCreate() {
           </p>
         </div>
 
-        <div className="waiter-chip">
-          <span className="pill-label">Waiter</span>
-          <span>{waiterName}</span>
+        <div className="header-actions">
+          <Link to="/waiter/home" className="ghost-btn">
+            Waiter Home
+          </Link>
+          <div className="waiter-chip">
+            <span className="pill-label">Waiter</span>
+            <span>{waiterName}</span>
+          </div>
         </div>
       </header>
 
@@ -164,6 +181,7 @@ export default function WaiterOrderCreate() {
               <label>Table</label>
               <input
                 type="number"
+                min="1"
                 placeholder="Table number"
                 value={table}
                 onChange={(e) => setTable(e.target.value)}
@@ -192,36 +210,93 @@ export default function WaiterOrderCreate() {
             </div>
           ) : (
             <div className="menu-grid">
-              {filteredMenu.map((item) => (
-                <article key={item.id} className="menu-card">
-                  <div>
-                    <div className="menu-card-top">
-                      <h3>{item.name}</h3>
-                      <span className="price-tag">
-                        {formatPrice(item.price)}
-                      </span>
-                    </div>
-                    <p className="muted">{item.description}</p>
-                  </div>
+              {filteredMenu.map((item, idx) => {
+                const itemKey = getItemKey(item) || String(idx);
+                const hasImage = Boolean(item.imageUrl);
+                const unavailable = item.available === false;
 
-                  <div className="menu-actions">
-                    {cart[item.id]?.qty ? (
-                      <div className="qty-chip">
-                        <button onClick={() => decreaseQty(item.id)}>-</button>
-                        <span>{cart[item.id].qty}</span>
-                        <button onClick={() => addToCart(item)}>+</button>
+                return (
+                  <article
+                    key={itemKey}
+                    className={`menu-card ${hasImage ? "has-image" : "no-image"} ${
+                      unavailable ? "is-disabled" : ""
+                    }`}
+                  >
+                    {hasImage ? (
+                      <div className="menu-card-image">
+                        <img src={item.imageUrl} alt={item.name || "Menu item"} />
                       </div>
-                    ) : (
-                      <button
-                        className="ghost-btn"
-                        onClick={() => addToCart(item)}
-                      >
-                        Add to order
-                      </button>
-                    )}
-                  </div>
-                </article>
-              ))}
+                    ) : null}
+
+                    <div className="menu-card-body">
+                      <div className="menu-card-top">
+                        <div className="menu-card-title">
+                          <h3>{item.name}</h3>
+                          {item.category ? (
+                            <span className="pill">{item.category}</span>
+                          ) : null}
+                          {item.sku ? (
+                            <span className="pill ghost">SKU: {item.sku}</span>
+                          ) : null}
+                          {unavailable ? <span className="pill warning">Unavailable</span> : null}
+                        </div>
+                        <span className="price-tag">{formatPrice(item.price)}</span>
+                      </div>
+
+                      {item.description ? <p className="muted">{item.description}</p> : null}
+                      {item.notes ? <p className="muted small">Notes: {item.notes}</p> : null}
+
+                      <div className="meta-row">
+                        {item.prepTime ? (
+                          <span className="pill ghost">Prep: {item.prepTime}</span>
+                        ) : null}
+                        {item.spiceLevel ? (
+                          <span className="pill ghost">Spice: {item.spiceLevel}</span>
+                        ) : null}
+                        {listify(item.ingredients) ? (
+                          <span className="pill light">
+                            Ingredients: {listify(item.ingredients)}
+                          </span>
+                        ) : null}
+                      </div>
+
+                      {listify(item.allergens) ? (
+                        <p className="muted small warning-text">
+                          Allergens: {listify(item.allergens)}
+                        </p>
+                      ) : null}
+
+                      {listify(item.addons) ? (
+                        <p className="muted small">Add-ons: {listify(item.addons)}</p>
+                      ) : null}
+
+                      {listify(item.variants) ? (
+                        <p className="muted small">Variants: {listify(item.variants)}</p>
+                      ) : null}
+                    </div>
+
+                    <div className="menu-actions">
+                      {cart[itemKey]?.qty ? (
+                        <div className="qty-chip">
+                          <button onClick={() => decreaseQty(itemKey)}>-</button>
+                          <span>{cart[itemKey].qty}</span>
+                          <button onClick={() => addToCart(item)} disabled={unavailable}>
+                            +
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          className="ghost-btn"
+                          onClick={() => addToCart(item)}
+                          disabled={unavailable}
+                        >
+                          {unavailable ? "Out of stock" : "Add to order"}
+                        </button>
+                      )}
+                    </div>
+                  </article>
+                );
+              })}
             </div>
           )}
         </section>
@@ -247,7 +322,10 @@ export default function WaiterOrderCreate() {
                 <div key={item.id} className="cart-row">
                   <div>
                     <p className="cart-title">{item.name}</p>
-                    <p className="muted">{formatPrice(item.price)}</p>
+                    <p className="muted small">
+                      {formatPrice(item.price)} each &bull;{" "}
+                      {formatPrice((Number(item.price) || 0) * (item.qty || 0))} total
+                    </p>
                   </div>
 
                   <div className="cart-actions">

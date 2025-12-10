@@ -1,7 +1,8 @@
 import axios from "axios";
+import { API_BASE_URL } from "../config/api";
 
 const api = axios.create({
-  baseURL: "http://localhost:5001/swift-stack-444307-m4/us-central1/api/", // կամ քո deployed URL-ը
+  baseURL: API_BASE_URL
 });
 
 export default api;

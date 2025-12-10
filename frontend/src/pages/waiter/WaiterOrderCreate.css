@@ -4,6 +4,8 @@
   padding: 28px 22px 40px;
   color: #0f172a;
   font-family: "Inter", system-ui, -apple-system, sans-serif;
+  max-width: 1240px;
+  margin: 0 auto;
 }
 
 .order-header {
@@ -12,6 +14,14 @@
   align-items: flex-start;
   gap: 12px;
   margin-bottom: 20px;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .page-title {
@@ -147,43 +157,96 @@
 
 .menu-grid {
   display: grid;
-  gap: 12px;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
 }
 
 .menu-card {
   border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  padding: 12px;
+  border-radius: 14px;
+  padding: 14px;
   background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
+  display: grid;
+  grid-template-columns: 96px 1fr auto;
+  align-items: stretch;
+  gap: 12px;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.04);
+  transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
+}
+
+.menu-card.no-image {
+  grid-template-columns: 1fr auto;
+}
+
+.menu-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.06);
+  border-color: #cbd5e1;
+}
+
+.menu-card.is-disabled {
+  opacity: 0.65;
+  background: #f8fafc;
+}
+
+.menu-card-image {
+  width: 96px;
+  height: 96px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  background: #f1f5f9;
+}
+
+.menu-card-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.menu-card-body {
+  display: grid;
+  gap: 8px;
 }
 
 .menu-card-top {
   display: flex;
-  align-items: baseline;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 8px;
 }
 
+.menu-card-title {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
 .menu-card h3 {
   margin: 0 0 6px;
-  font-size: 17px;
+  font-size: 18px;
 }
 
 .price-tag {
-  padding: 4px 10px;
-  background: #e0f2fe;
-  color: #0c4a6e;
-  border-radius: 999px;
-  font-weight: 700;
+  padding: 6px 12px;
+  background: #ecfdf3;
+  color: #166534;
+  border-radius: 12px;
+  font-weight: 800;
   font-size: 13px;
+  border: 1px solid #bbf7d0;
+  white-space: nowrap;
 }
 
 .menu-actions {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  align-self: center;
+  flex-wrap: wrap;
 }
 
 .ghost-btn {
@@ -195,6 +258,7 @@
   cursor: pointer;
   font-weight: 600;
   transition: transform 0.12s ease, box-shadow 0.12s ease;
+  min-width: 140px;
 }
 
 .ghost-btn:hover {
@@ -210,6 +274,7 @@
   color: #fff;
   border-radius: 12px;
   padding: 6px 10px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
 }
 
 .qty-chip.small {
@@ -227,10 +292,63 @@
   cursor: pointer;
 }
 
+.qty-chip button:disabled {
+  cursor: not-allowed;
+  opacity: 0.8;
+}
+
+.meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #eef2ff;
+  border: 1px solid #e0e7ff;
+  color: #312e81;
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+
+.pill.ghost {
+  background: #f8fafc;
+  color: #475569;
+  border-color: #e2e8f0;
+}
+
+.pill.subtle {
+  background: #f8fafc;
+  color: #475569;
+  border-color: #e2e8f0;
+}
+
+.pill.light {
+  background: #e0f2fe;
+  color: #0f4c81;
+  border-color: #bae6fd;
+}
+
+.pill.warning {
+  background: #fef2f2;
+  color: #991b1b;
+  border-color: #fecdd3;
+}
+
 .summary-panel {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  position: sticky;
+  top: 20px;
 }
 
 .summary-heading {
@@ -255,6 +373,10 @@
   padding: 10px 12px;
 }
 
+.muted.small {
+  font-size: 12px;
+}
+
 .cart-title {
   margin: 0 0 6px;
   font-weight: 700;
@@ -273,6 +395,22 @@
   border-radius: 10px;
   padding: 6px 10px;
   cursor: pointer;
+  font-weight: 700;
+}
+
+.warning-text {
+  color: #b91c1c;
+}
+
+.age-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #fff7ed;
+  color: #c2410c;
+  border: 1px solid #fed7aa;
+  font-size: 12px;
   font-weight: 700;
 }
 
@@ -313,5 +451,20 @@
 @media (max-width: 960px) {
   .order-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .menu-card {
+    grid-template-columns: 1fr;
+  }
+
+  .menu-card-image {
+    width: 100%;
+    height: 180px;
+  }
+
+  .menu-actions {
+    justify-content: flex-start;
   }
 }

@@ -1,5 +1,6 @@
 const LOCAL_API_BASE = "http://localhost:5001/swift-stack-444307-m4/us-central1/api";
-const PROD_API_BASE = "https://api-qjjvzkr5nq-uc.a.run.app/api";
+// Cloud Run endpoint already points to the root of the function, so no extra /api suffix
+const PROD_API_BASE = "https://api-qjjvzkr5nq-uc.a.run.app";
 
 const normalizeBase = (url) => String(url || "").replace(/\/+$/, "");
 

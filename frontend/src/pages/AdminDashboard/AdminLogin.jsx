@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { auth } from "../../firebase";
 
 export default function AdminLogin() {
   const [email, setEmail] = useState("");
@@ -7,12 +9,19 @@ export default function AdminLogin() {
   const [error, setError] = useState("");
   const navigate = useNavigate();
 
-  const handleLogin = () => {
-    if (email === "admin@smartorder.com" && pin === "Admin.1234") {
-      // SAVE ADMIN TOKEN
-      localStorage.setItem("adminToken", "secure_admin_token_123");
+  const handleLogin = async () => {
+    try {
+      // Firebase Email/PIN login
+      const userCred = await signInWithEmailAndPassword(auth, email, pin);
+
+      // Get Firebase ID token
+      const token = await userCred.user.getIdToken();
+
+      // Save token to browser
+      localStorage.setItem("adminToken", token);
+
       navigate("/admin");
-    } else {
+    } catch (err) {
       setError("Invalid login");
     }
   };

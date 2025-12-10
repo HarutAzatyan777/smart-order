@@ -27,23 +27,43 @@ export default function KitchenDashboard() {
 
       {error && <p className="error-message">{error}</p>}
 
-      <Section title="Incoming Orders" orders={orders} filter="new" handleUpdate={handleUpdate}
+      <Section
+        title="Incoming Orders"
+        orders={orders}
+        filter="new"
+        handleUpdate={handleUpdate}
         actions={[{ label: "Accept Order", status: "accepted" }]}
       />
 
-      <Section title="Accepted" orders={orders} filter="accepted" handleUpdate={handleUpdate}
+      <Section
+        title="Accepted"
+        orders={orders}
+        filter="accepted"
+        handleUpdate={handleUpdate}
         actions={[{ label: "Start Preparing", status: "preparing" }]}
       />
 
-      <Section title="Preparing" orders={orders} filter="preparing" handleUpdate={handleUpdate}
+      <Section
+        title="Preparing"
+        orders={orders}
+        filter="preparing"
+        handleUpdate={handleUpdate}
         actions={[{ label: "Mark as Ready", status: "ready" }]}
       />
 
-      <Section title="Ready" orders={orders} filter="ready" handleUpdate={handleUpdate}
+      <Section
+        title="Ready"
+        orders={orders}
+        filter="ready"
+        handleUpdate={handleUpdate}
         actions={[{ label: "Deliver to Table", status: "delivered" }]}
       />
 
-      <Section title="Delivered" orders={orders} filter="delivered" handleUpdate={handleUpdate}
+      <Section
+        title="Delivered"
+        orders={orders}
+        filter="delivered"
+        handleUpdate={handleUpdate}
         actions={[{ label: "Close Order", status: "closed" }]}
       />
     </div>
@@ -80,9 +100,23 @@ function OrderCard({ order, onAction, actions }) {
   return (
     <div className="order-card">
       <div className="order-info">
-        <p><strong>Table:</strong> {order.table}</p>
-        <p><strong>Items:</strong> {order.items.join(", ")}</p>
-        <p><strong>Status:</strong> {order.status}</p>
+        <p>
+          <strong>Table:</strong> {order.table}
+        </p>
+
+        <p>
+          <strong>Items:</strong>
+          <br />
+          {order.items?.map((item, i) => (
+            <span key={i}>
+              {item.name} {item.qty ? `(x${item.qty})` : ""} <br />
+            </span>
+          ))}
+        </p>
+
+        <p>
+          <strong>Status:</strong> {order.status}
+        </p>
       </div>
 
       <div className="order-actions">

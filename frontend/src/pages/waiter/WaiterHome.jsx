@@ -5,7 +5,7 @@ import "./WaiterHome.css";
 export default function WaiterHome() {
   const orders = useOrdersRealtime() || [];
 
-  // Sort newest to oldest using normalized createdAt
+  // Sort newest → oldest
   const sorted = [...orders].sort((a, b) => {
     const tA = a.createdAt ? a.createdAt.getTime() : 0;
     const tB = b.createdAt ? b.createdAt.getTime() : 0;
@@ -20,24 +20,36 @@ export default function WaiterHome() {
         Create New Order
       </Link>
 
+      {/* EMPTY STATE */}
       {sorted.length === 0 && (
         <p className="empty-message">No orders yet.</p>
       )}
 
+      {/* ORDER CARDS */}
       {sorted.map((o) => (
         <div key={o.id} className="order-card">
+
           <p>
             <strong>Table:</strong> {o.table}
           </p>
+
           <p>
             <strong>Status:</strong> {o.status}
           </p>
 
-          {o.items && (
+          {/* NEW FORMAT: item.name + qty */}
+          {Array.isArray(o.items) && o.items.length > 0 && (
             <p className="order-items">
-              <strong>Items:</strong> {Array.isArray(o.items)
-                ? o.items.map(i => i.name ? `${i.name} (x${i.qty})` : i).join(", ")
-                : ""}
+              <strong>Items:</strong>{" "}
+              {o.items
+                .map((i) =>
+                  i.name
+                    ? `${i.name} (x${i.qty ?? 1})`
+                    : typeof i === "string"
+                    ? i
+                    : ""
+                )
+                .join(", ")}
             </p>
           )}
 

@@ -12,7 +12,13 @@ const waitersAdminRouter = require('./routes/admin/waiters'); // <-- ADD THIS
 const app = express();
 
 // CORS
-app.use(cors({ origin: true }));
+app.use(
+  cors({
+    origin: true,
+    methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
 app.use(express.json());
 
 // Health check
@@ -25,6 +31,8 @@ app.use('/orders', ordersRouter);
 app.use('/menu', menuRouter);
 app.use('/kitchen', kitchenRouter);
 app.use('/waiter', waiterRouter);
+
+//image upload
 
 // Admin
 app.use('/admin', adminRouter);

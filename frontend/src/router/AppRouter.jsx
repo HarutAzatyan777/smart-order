@@ -14,6 +14,7 @@ import KitchenDashboard from "../pages/kitchen/KitchenDashboard";
 // ADMIN
 import AdminDashboard from "../pages/AdminDashboard/AdminDashboard";
 import AdminLogin from "../pages/AdminDashboard/AdminLogin";
+import WaiterMenu from "../pages/waiter/WaiterMenu";
 
 function AdminProtectedRoute({ children }) {
   const token = localStorage.getItem("adminToken");
@@ -32,6 +33,8 @@ export default function AppRouter() {
         <Route path="/waiter" element={<WaiterLogin />} />
         <Route path="/waiter/home" element={<WaiterHome />} />
         <Route path="/waiter/create" element={<WaiterOrderCreate />} />
+        <Route path="/waiter/menu" element={<WaiterMenu />} />
+
 
         {/* KITCHEN */}
         <Route path="/kitchen" element={<KitchenDashboard />} />

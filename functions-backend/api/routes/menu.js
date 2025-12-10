@@ -4,12 +4,15 @@ const router = express.Router();
 const { db } = require('../../admin');
 const { FieldValue } = require('firebase-admin/firestore');
 
-// ==========================
-// POST → Add Menu Item
-// ==========================
+
+// =====================================================================
+// =====================  MENU CRUD ROUTES =============================
+// =====================================================================
+
+// ADD MENU ITEM
 router.post('/', async (req, res) => {
   try {
-    const { name, price, category, description, available } = req.body;
+    const { name, price, category, description, available, imageUrl } = req.body;
 
     if (!name || !price || !category) {
       return res.status(400).send({
@@ -22,7 +25,8 @@ router.post('/', async (req, res) => {
       price,
       category,
       description: description || "",
-      available: available ?? true,   // default TRUE
+      imageUrl: imageUrl || null,
+      available: available ?? true,
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp()
     });
@@ -38,9 +42,7 @@ router.post('/', async (req, res) => {
   }
 });
 
-// ==========================
-// GET → Get Menu List
-// ==========================
+// GET ALL MENU ITEMS
 router.get('/', async (req, res) => {
   try {
     const { category, available } = req.query;
@@ -67,9 +69,33 @@ router.get('/', async (req, res) => {
   }
 });
 
-// ==========================
-// PATCH → Update Menu Item
-// ==========================
+// GROUPED BY CATEGORY
+router.get('/grouped', async (req, res) => {
+  try {
+    const snapshot = await db.collection('menu')
+      .orderBy('createdAt', 'desc')
+      .get();
+
+    const items = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+
+    const grouped = {};
+    items.forEach(item => {
+      if (!grouped[item.category]) grouped[item.category] = [];
+      grouped[item.category].push(item);
+    });
+
+    res.status(200).send(grouped);
+
+  } catch (error) {
+    console.error("getGroupedMenu error:", error);
+    res.status(500).send({ error: error.message });
+  }
+});
+
+// UPDATE MENU ITEM
 router.patch('/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -83,7 +109,6 @@ router.patch('/:id', async (req, res) => {
     }
 
     updates.updatedAt = FieldValue.serverTimestamp();
-
     await docRef.update(updates);
 
     res.status(200).send({
@@ -97,9 +122,7 @@ router.patch('/:id', async (req, res) => {
   }
 });
 
-// ==========================
-// DELETE → Delete Menu Item
-// ==========================
+// DELETE MENU ITEM
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;

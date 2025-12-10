@@ -5,121 +5,157 @@ import { useNavigate } from "react-router-dom";
 export default function AdminDashboard() {
   const navigate = useNavigate();
 
-  const API =
+  const WAITER_API =
     "http://localhost:5001/swift-stack-444307-m4/us-central1/api/admin/waiters";
 
+  const ORDERS_API =
+    "http://localhost:5001/swift-stack-444307-m4/us-central1/api/admin/orders";
+
+  const MENU_API =
+    "http://localhost:5001/swift-stack-444307-m4/us-central1/api/admin/menu";
+
   const [waiters, setWaiters] = useState([]);
+  const [orders, setOrders] = useState([]);
+  const [menu, setMenu] = useState([]);
+
   const [name, setName] = useState("");
   const [pin, setPin] = useState("");
+
+  // menu fields
+  const [menuName, setMenuName] = useState("");
+  const [menuPrice, setMenuPrice] = useState("");
+  const [menuCategory, setMenuCategory] = useState("");
+  const [menuDescription, setMenuDescription] = useState("");
+
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(true);
 
-  // First check: does adminToken exist?
+  // Check admin token
   useEffect(() => {
-    const token = localStorage.getItem("adminToken");
-
-    if (!token) {
+    if (!localStorage.getItem("adminToken")) {
       navigate("/admin/login");
     }
   }, []);
 
-  // Load waiters list
+  const token = localStorage.getItem("adminToken");
+
+  // ========================= LOADERS ========================= //
+
   const loadWaiters = () => {
-    const token = localStorage.getItem("adminToken");
+    fetch(WAITER_API, { headers: { Authorization: `Bearer ${token}` } })
+      .then((res) => res.json())
+      .then(setWaiters)
+      .catch(() => setError("Cannot load waiter list"));
+  };
 
-    fetch(API, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    })
-      .then(async (res) => {
-        if (res.status === 401) {
-          // Token invalid -> logout
-          localStorage.removeItem("adminToken");
-          navigate("/admin/login");
-          return;
-        }
+  const loadOrders = () => {
+    fetch(ORDERS_API, { headers: { Authorization: `Bearer ${token}` } })
+      .then((res) => res.json())
+      .then(setOrders)
+      .catch(() => setError("Cannot load orders"));
+  };
 
-        const data = await res.json();
-        setWaiters(data);
-        setLoading(false);
-      })
-      .catch(() => {
-        setError("Cannot load waiter list");
-        setLoading(false);
-      });
+  const loadMenu = () => {
+    fetch(MENU_API, { headers: { Authorization: `Bearer ${token}` } })
+      .then((res) => res.json())
+      .then(setMenu)
+      .catch(() => setError("Cannot load menu"));
   };
 
   useEffect(() => {
     loadWaiters();
+    loadOrders();
+    loadMenu();
   }, []);
 
-  const addWaiter = async () => {
-    const token = localStorage.getItem("adminToken");
+  // ========================= ADD WAITER ========================= //
 
+  const addWaiter = async () => {
     if (!name.trim() || !pin.trim()) {
       setError("Name and PIN required");
       return;
     }
 
-    try {
-      const res = await fetch(API, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ name, pin }),
-      });
+    await fetch(WAITER_API, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ name, pin }),
+    });
 
-      if (res.status === 401) {
-        localStorage.removeItem("adminToken");
-        navigate("/admin/login");
-        return;
-      }
-
-      setName("");
-      setPin("");
-      loadWaiters();
-    } catch {
-      setError("Failed to add waiter");
-    }
+    setName("");
+    setPin("");
+    loadWaiters();
   };
 
   const deleteWaiter = async (id) => {
-    const token = localStorage.getItem("adminToken");
+    if (!window.confirm("Delete waiter?")) return;
 
-    if (!window.confirm("Delete this waiter?")) return;
+    await fetch(`${WAITER_API}/${id}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
 
-    try {
-      const res = await fetch(`${API}/${id}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (res.status === 401) {
-        localStorage.removeItem("adminToken");
-        navigate("/admin/login");
-        return;
-      }
-
-      loadWaiters();
-    } catch {
-      setError("Failed to delete waiter");
-    }
+    loadWaiters();
   };
+
+  // ========================= MENU CRUD ========================= //
+
+  const addMenuItem = async () => {
+    if (!menuName.trim() || !menuPrice || !menuCategory.trim()) {
+      setError("Menu name, price, and category required");
+      return;
+    }
+
+    const payload = {
+      name: menuName,
+      price: Number(menuPrice),
+      category: menuCategory,
+      description: menuDescription,
+      available: true,
+    };
+
+    await fetch(MENU_API, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    setMenuName("");
+    setMenuPrice("");
+    setMenuCategory("");
+    setMenuDescription("");
+
+    loadMenu();
+  };
+
+  const deleteMenuItem = async (id) => {
+    if (!window.confirm("Delete menu item?")) return;
+
+    await fetch(`${MENU_API}/${id}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    loadMenu();
+  };
+
+  // group menu by categories
+  const categories = [...new Set(menu.map((m) => m.category))];
 
   return (
     <div className="admin-dashboard">
       <h1 className="admin-title">Admin Dashboard</h1>
 
+      {/* ==================== WAITER CREATE ==================== */}
       <h2 className="section-title">Add Waiter</h2>
 
       <input
         className="admin-input"
-        type="text"
         placeholder="Waiter Name"
         value={name}
         onChange={(e) => setName(e.target.value)}
@@ -127,8 +163,8 @@ export default function AdminDashboard() {
 
       <input
         className="admin-input"
-        type="password"
         placeholder="PIN"
+        type="password"
         value={pin}
         onChange={(e) => setPin(e.target.value)}
       />
@@ -137,20 +173,90 @@ export default function AdminDashboard() {
         Add Waiter
       </button>
 
-      {error && <p className="error-message">{error}</p>}
-
-      <h2 className="section-title">Waiters List</h2>
-
-      {loading && <p>Loading...</p>}
+      {/* ==================== WAITER LIST ==================== */}
+      <h2 className="section-title">Waiters</h2>
 
       {waiters.map((w) => (
         <div key={w.id} className="waiter-card">
-          <p><strong>Name:</strong> {w.name}</p>
-          <p><strong>PIN:</strong> {w.pin}</p>
-
+          <p>{w.name}</p>
+          <p>PIN: {w.pin}</p>
           <button className="delete-button" onClick={() => deleteWaiter(w.id)}>
             Delete
           </button>
+        </div>
+      ))}
+
+      {/* ==================== MENU SECTION ==================== */}
+      <h2 className="section-title">Menu Management</h2>
+
+      <input
+        className="admin-input"
+        placeholder="Item Name"
+        value={menuName}
+        onChange={(e) => setMenuName(e.target.value)}
+      />
+
+      <input
+        className="admin-input"
+        placeholder="Price"
+        type="number"
+        value={menuPrice}
+        onChange={(e) => setMenuPrice(e.target.value)}
+      />
+
+      <input
+        className="admin-input"
+        placeholder="Category (Drinks, Pizza, Burger...)"
+        value={menuCategory}
+        onChange={(e) => setMenuCategory(e.target.value)}
+      />
+
+      <textarea
+        className="admin-input"
+        placeholder="Description"
+        value={menuDescription}
+        onChange={(e) => setMenuDescription(e.target.value)}
+      />
+
+      <button className="admin-button" onClick={addMenuItem}>
+        Add Menu Item
+      </button>
+
+      {/* ==================== SHOW MENU ==================== */}
+      <h2 className="section-title">Current Menu</h2>
+
+      {categories.map((cat) => (
+        <div key={cat}>
+          <h3 className="category-title">{cat}</h3>
+
+          {menu
+            .filter((m) => m.category === cat)
+            .map((item) => (
+              <div key={item.id} className="menu-card">
+                <p>
+                  <strong>{item.name}</strong> ({item.price} AMD)
+                </p>
+                <p>{item.description}</p>
+
+                <button
+                  className="delete-button"
+                  onClick={() => deleteMenuItem(item.id)}
+                >
+                  Delete
+                </button>
+              </div>
+            ))}
+        </div>
+      ))}
+
+      {/* ==================== ORDERS SECTION ==================== */}
+      <h2 className="section-title">Orders</h2>
+
+      {orders.map((o) => (
+        <div key={o.id} className="order-card-admin">
+          <p><strong>Table:</strong> {o.table}</p>
+          <p><strong>Waiter:</strong> {o.waiterName}</p>
+          <p><strong>Status:</strong> {o.status}</p>
         </div>
       ))}
     </div>

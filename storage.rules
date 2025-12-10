@@ -1,0 +1,9 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      // Թույլ ենք տալիս ամբողջը (միայն էմուլյատորի համար OK է)
+      allow read, write: if true;
+    }
+  }
+}

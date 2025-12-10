@@ -11,23 +11,27 @@ export default function WaiterLogin() {
 
   const API = apiUrl("waiters");
 
-  const loadWaiters = useCallback(() => {
+  const loadWaiters = useCallback(async () => {
     setLoading(true);
     setError("");
 
-    fetch(API)
-      .then((res) => res.json())
-      .then((data) => {
-        const active = Array.isArray(data)
-          ? data.filter((w) => w.active !== false)
-          : [];
-        setWaiters(active);
-      })
-      .catch(() => {
-        setError("Could not load waiters list");
-        setWaiters([]);
-      })
-      .finally(() => setLoading(false));
+    try {
+      const res = await fetch(API);
+      if (!res.ok) {
+        const body = await res.text();
+        throw new Error(body || `Request failed (${res.status})`);
+      }
+
+      const data = await res.json();
+      const active = Array.isArray(data) ? data.filter((w) => w.active !== false) : [];
+      setWaiters(active);
+    } catch (err) {
+      console.error("Waiter load error:", err);
+      setError("Could not load waiters list");
+      setWaiters([]);
+    } finally {
+      setLoading(false);
+    }
   }, [API]);
 
   // Load waiters

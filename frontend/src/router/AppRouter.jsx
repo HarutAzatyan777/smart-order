@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import Header from "../components/header/Header";
 
 // HOME
 import Home from "../pages/home/Home";
@@ -25,6 +26,7 @@ function AdminProtectedRoute({ children }) {
 export default function AppRouter() {
   return (
     <BrowserRouter>
+      <Header />
       <Routes>
         {/* HOME */}
         <Route path="/" element={<Home />} />

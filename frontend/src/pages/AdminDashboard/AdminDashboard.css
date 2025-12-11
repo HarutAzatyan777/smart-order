@@ -190,6 +190,40 @@
   justify-content: flex-end;
 }
 
+.import-box {
+  border: 1px dashed #d1d5db;
+  background: #f8fafc;
+  border-radius: 12px;
+  padding: 12px;
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.import-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.import-summary {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.import-errors {
+  border: 1px solid #fecdd3;
+  background: #fef2f2;
+  color: #991b1b;
+  padding: 8px 10px;
+  border-radius: 10px;
+  font-weight: 600;
+}
+
 .filter-group {
   display: inline-flex;
   gap: 6px;

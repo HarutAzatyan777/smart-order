@@ -1,8 +1,9 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import Header from "../components/header/Header";
 
 // HOME
 import Home from "../pages/home/Home";
+import MenuPage from "../pages/menu/menu";
 
 // WAITER
 import WaiterLogin from "../pages/waiter/WaiterLogin";
@@ -26,10 +27,22 @@ function AdminProtectedRoute({ children }) {
 export default function AppRouter() {
   return (
     <BrowserRouter>
-      <Header />
+      <RouterShell />
+    </BrowserRouter>
+  );
+}
+
+function RouterShell() {
+  const location = useLocation();
+  const hideHeader = location.pathname.startsWith("/menu");
+
+  return (
+    <>
+      {!hideHeader && <Header />}
       <Routes>
         {/* HOME */}
         <Route path="/" element={<Home />} />
+        <Route path="/menu" element={<MenuPage />} />
 
         {/* WAITER */}
         <Route path="/waiter" element={<WaiterLogin />} />
@@ -54,6 +67,6 @@ export default function AppRouter() {
           }
         />
       </Routes>
-    </BrowserRouter>
+    </>
   );
 }

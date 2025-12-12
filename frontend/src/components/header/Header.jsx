@@ -3,6 +3,7 @@ import "./Header.css";
 
 const navLinks = [
   { to: "/", label: "Home", end: true },
+  { to: "/menu", label: "Menu" },
   { to: "/waiter", label: "Waiter Panel" },
   { to: "/kitchen", label: "Kitchen" },
   { to: "/admin", label: "Admin" }

@@ -1,0 +1,126 @@
+.menu-header {
+  position: sticky;
+  top: 10px;
+  z-index: 7;
+  display: grid;
+  grid-template-columns: 1.6fr auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  border-radius: 14px;
+  background: rgba(15, 34, 53, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.32);
+}
+
+.menu-header-wrap.is-collapsed .menu-header {
+  padding: 10px 12px;
+  grid-template-columns: 1fr auto;
+  background: rgba(15, 34, 53, 0.9);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.3);
+}
+
+.menu-header-text {
+  display: grid;
+  gap: 6px;
+}
+
+.menu-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.menu-header-text {
+  display: grid;
+  gap: 6px;
+}
+
+.menu-header h1 {
+  margin: 6px 0 4px;
+  font-size: 26px;
+  letter-spacing: -0.02em;
+}
+
+.stat-chips {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.menu-header-controls {
+  display: grid;
+  gap: 8px;
+  justify-items: end;
+}
+
+.menu-header-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.pill-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.pill.accent {
+  background: rgba(34, 211, 238, 0.2);
+  color: #7ce7ff;
+  border-color: rgba(34, 211, 238, 0.4);
+}
+
+.menu-header .menu-btn.primary {
+  min-width: 160px;
+  box-shadow: 0 14px 28px rgba(34, 211, 238, 0.32);
+}
+
+.menu-header-selection {
+  margin-top: 12px;
+  position: sticky;
+  top: 12px;
+  z-index: 5;
+}
+
+.menu-header-wrap.is-collapsed .menu-header-selection,
+.menu-header-wrap.is-collapsed .menu-controls {
+  display: none;
+}
+
+@media (max-width: 1024px) {
+  .menu-header {
+    grid-template-columns: 1fr;
+  }
+
+  .menu-header-controls {
+    justify-items: start;
+  }
+
+  .menu-header-actions {
+    justify-content: flex-start;
+  }
+
+  .menu-header .menu-btn.primary {
+    width: 100%;
+  }
+
+  .menu-header-selection {
+    position: static;
+  }
+}
+
+@media (max-width: 720px) {
+  .menu-header {
+    padding: 12px;
+  }
+
+  .menu-header-actions {
+    width: 100%;
+  }
+}

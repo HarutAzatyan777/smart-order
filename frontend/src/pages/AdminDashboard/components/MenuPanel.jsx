@@ -1,6 +1,6 @@
-import { useRef } from "react";
+import { forwardRef, useRef, useState } from "react";
 
-export default function MenuPanel({
+const MenuPanel = forwardRef(function MenuPanel({
   menuSearch,
   setMenuSearch,
   loadingMenu,
@@ -34,13 +34,30 @@ export default function MenuPanel({
   importingMenu,
   importSummary,
   importMenuFile,
-  onReload
-}) {
+  onReload,
+  maxCategoryList = Infinity,
+  onViewAllClick,
+  menuFilter,
+  setMenuFilter
+}, ref) {
+  const visibleCategories =
+    maxCategoryList === Infinity ? categories : categories.slice(0, maxCategoryList);
   const fileInputRef = useRef(null);
+  const [openCategories, setOpenCategories] = useState({});
   const handleFileChange = async (e) => {
     const file = e.target.files?.[0];
     await importMenuFile(file);
     e.target.value = "";
+  };
+
+  const isCategoryOpen = (cat, idx) =>
+    openCategories.hasOwnProperty(cat) ? openCategories[cat] : idx < 2;
+
+  const toggleCategory = (cat, idx) => {
+    setOpenCategories((prev) => {
+      const currentlyOpen = prev.hasOwnProperty(cat) ? prev[cat] : idx < 2;
+      return { ...prev, [cat]: !currentlyOpen };
+    });
   };
 
   return (
@@ -59,6 +76,15 @@ export default function MenuPanel({
             value={menuSearch}
             onChange={(e) => setMenuSearch(e.target.value)}
           />
+          <select
+            className="admin-input compact"
+            value={menuFilter}
+            onChange={(e) => setMenuFilter(e.target.value)}
+          >
+            <option value="all">All items</option>
+            <option value="available">Available only</option>
+            <option value="unavailable">Unavailable only</option>
+          </select>
           <button className="ghost-btn" onClick={onReload} disabled={loadingMenu}>
             {loadingMenu ? "Loading..." : "Reload"}
           </button>
@@ -158,105 +184,139 @@ export default function MenuPanel({
       ) : categories.length === 0 ? (
         <div className="empty-state">No menu items yet. Add your first dish.</div>
       ) : (
-        categories.map((cat) => (
-          <div key={cat} className="category-block">
-            <div className="category-header">
-              <h3>{cat}</h3>
-              <span className="pill subtle">
-                {filteredMenu.filter((m) => (m.category || "Uncategorized") === cat).length} items
-              </span>
-            </div>
-            <div className="menu-grid">
-              {filteredMenu
-                .filter((m) => (m.category || "Uncategorized") === cat)
-                .map((item) => (
-                  <div key={item.id} className="admin-menu-card">
-                    {editingMenuId === item.id ? (
-                      <div className="edit-grid">
-                        <input
-                          className="admin-input"
-                          value={editMenuName}
-                          onChange={(e) => setEditMenuName(e.target.value)}
-                          placeholder="Item name"
-                        />
-                        <input
-                          className="admin-input"
-                          type="number"
-                          value={editMenuPrice}
-                          onChange={(e) => setEditMenuPrice(e.target.value)}
-                          placeholder="Price"
-                        />
-                        <input
-                          className="admin-input"
-                          value={editMenuCategory}
-                          onChange={(e) => setEditMenuCategory(e.target.value)}
-                          placeholder="Category"
-                        />
-                        <textarea
-                          className="admin-textarea"
-                          value={editMenuDescription}
-                          onChange={(e) => setEditMenuDescription(e.target.value)}
-                          placeholder="Description"
-                        />
-                        <div className="menu-actions">
-                          <button
-                            className="primary-btn"
-                            onClick={saveMenuItem}
-                            disabled={menuActionId === item.id}
-                          >
-                            {menuActionId === item.id ? "Saving..." : "Save"}
-                          </button>
-                          <button className="ghost-btn" onClick={cancelEditMenuItem}>
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <>
-                        <div className="menu-card-top">
-                          <div>
-                            <p className="muted small">{item.category || "Uncategorized"}</p>
-                            <h4>{item.name}</h4>
-                            <p className="price">{formatCurrency(item.price)}</p>
+        visibleCategories.map((cat, idx) => {
+          const itemsForCategory = filteredMenu.filter(
+            (m) => (m.category || "Uncategorized") === cat
+          );
+          if (!itemsForCategory.length) return null;
+          const categoryOpen = isCategoryOpen(cat, idx);
+          return (
+            <div key={cat} className="category-block" data-open={categoryOpen ? "true" : "false"}>
+              <div className="category-header">
+                <h3>{cat}</h3>
+                <div className="category-header-meta">
+                  <span className="pill subtle">{itemsForCategory.length} items</span>
+                  <button
+                    className="ghost-btn small category-toggle"
+                    onClick={() => toggleCategory(cat, idx)}
+                  >
+                    {categoryOpen ? "Collapse" : "Show dishes"}
+                  </button>
+                </div>
+              </div>
+              {categoryOpen ? (
+                <div className="menu-grid">
+                  {itemsForCategory.map((item) => (
+                    <div key={item.id} className="admin-menu-card">
+                      {editingMenuId === item.id ? (
+                        <div className="edit-grid">
+                          <input
+                            className="admin-input"
+                            value={editMenuName}
+                            onChange={(e) => setEditMenuName(e.target.value)}
+                            placeholder="Item name"
+                          />
+                          <input
+                            className="admin-input"
+                            type="number"
+                            value={editMenuPrice}
+                            onChange={(e) => setEditMenuPrice(e.target.value)}
+                            placeholder="Price"
+                          />
+                          <input
+                            className="admin-input"
+                            value={editMenuCategory}
+                            onChange={(e) => setEditMenuCategory(e.target.value)}
+                            placeholder="Category"
+                          />
+                          <textarea
+                            className="admin-textarea"
+                            value={editMenuDescription}
+                            onChange={(e) => setEditMenuDescription(e.target.value)}
+                            placeholder="Description"
+                          />
+                          <div className="menu-actions">
+                            <button
+                              className="primary-btn"
+                              onClick={saveMenuItem}
+                              disabled={menuActionId === item.id}
+                            >
+                              {menuActionId === item.id ? "Saving..." : "Save"}
+                            </button>
+                            <button className="ghost-btn" onClick={cancelEditMenuItem}>
+                              Cancel
+                            </button>
                           </div>
-                          <span
-                            className={`status-chip ${item.available === false ? "status-muted" : "status-live"}`}
-                          >
-                            {item.available === false ? "Unavailable" : "Available"}
-                          </span>
                         </div>
-                        <p className="muted">{item.description || "No description provided."}</p>
-                        <div className="menu-actions">
-                          <button className="ghost-btn" onClick={() => startEditMenuItem(item)}>
-                            Edit
-                          </button>
-                          <button
-                            className="outline-btn"
-                            onClick={() => toggleMenuAvailability(item)}
-                            disabled={menuActionId === item.id}
-                          >
-                            {menuActionId === item.id
-                              ? "Updating..."
-                              : item.available === false
-                              ? "Mark available"
-                              : "Mark unavailable"}
-                          </button>
-                          <button
-                            className="danger-btn"
-                            onClick={() => deleteMenuItem(item.id)}
-                            disabled={menuActionId === item.id}
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                ))}
+                      ) : (
+                        <>
+                          <div className="menu-card-top">
+                            <div>
+                              <p className="muted small">{item.category || "Uncategorized"}</p>
+                              <h4>{item.name}</h4>
+                              <p className="price">{formatCurrency(item.price)}</p>
+                            </div>
+                            <span
+                              className={`status-chip ${item.available === false ? "status-muted" : "status-live"}`}
+                            >
+                              {item.available === false ? "Unavailable" : "Available"}
+                            </span>
+                          </div>
+                          <p className="muted">{item.description || "No description provided."}</p>
+                          <div className="menu-actions">
+                            <button className="ghost-btn" onClick={() => startEditMenuItem(item)}>
+                              Edit
+                            </button>
+                            <button
+                              className="outline-btn"
+                              onClick={() => toggleMenuAvailability(item)}
+                              disabled={menuActionId === item.id}
+                            >
+                              {menuActionId === item.id
+                                ? "Updating..."
+                                : item.available === false
+                                ? "Mark available"
+                                : "Mark unavailable"}
+                            </button>
+                            <button
+                              className="danger-btn"
+                              onClick={() => deleteMenuItem(item.id)}
+                              disabled={menuActionId === item.id}
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="category-collapsed">
+                  <p className="muted small">
+                    {itemsForCategory.length} dishes are tucked away here to keep the dashboard tidy.
+                  </p>
+                  <button
+                    className="ghost-btn small category-toggle"
+                    onClick={() => toggleCategory(cat, idx)}
+                  >
+                    Show dishes
+                  </button>
+                </div>
+              )}
             </div>
-          </div>
-        ))
+          );
+        })
       )}
+      {categories.length > visibleCategories.length && onViewAllClick ? (
+        <div className="view-all-wrapper">
+          <button className="ghost-btn small" onClick={onViewAllClick}>
+            View full menu
+          </button>
+        </div>
+      ) : null}
     </section>
   );
-}
+});
+
+export default MenuPanel;

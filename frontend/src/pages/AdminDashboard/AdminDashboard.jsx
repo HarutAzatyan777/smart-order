@@ -1,5 +1,5 @@
 import "./AdminDashboard.css";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiUrl } from "../../config/api";
 
@@ -20,6 +20,7 @@ import {
   normalizeOrder
 } from "./helpers";
 import { normalizeMenuPayload, parseMenuFile } from "./importers";
+import MenuFullModal from "./components/MenuFullModal";
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -53,6 +54,7 @@ export default function AdminDashboard() {
   const [menuSearch, setMenuSearch] = useState("");
   const [orderSearch, setOrderSearch] = useState("");
   const [orderFilter, setOrderFilter] = useState("active");
+  const [menuFilter, setMenuFilter] = useState("all");
   const [importingMenu, setImportingMenu] = useState(false);
   const [importSummary, setImportSummary] = useState(null);
 
@@ -66,6 +68,10 @@ export default function AdminDashboard() {
   const [waiterAction, setWaiterAction] = useState(false);
   const [menuActionId, setMenuActionId] = useState("");
   const [orderActionId, setOrderActionId] = useState("");
+  const menuPanelRef = useRef(null);
+  const moreRef = useRef(null);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [showFullMenuModal, setShowFullMenuModal] = useState(false);
 
   const refreshAll = async () => {
     setLoading((prev) => ({ ...prev, refresh: true }));
@@ -80,7 +86,18 @@ export default function AdminDashboard() {
     }
 
     refreshAll();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, navigate]);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (moreRef.current && !moreRef.current.contains(event.target)) {
+        setMoreOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const withAuth = (options = {}) => ({
     ...options,
@@ -402,14 +419,19 @@ export default function AdminDashboard() {
 
   const filteredMenu = useMemo(() => {
     const term = menuSearch.trim().toLowerCase();
-    if (!term) return menu;
-    return menu.filter((item) => {
+    const filteredByVisibility = menu.filter((item) => {
+      if (menuFilter === "available" && item.available === false) return false;
+      if (menuFilter === "unavailable" && item.available !== false) return false;
+      return true;
+    });
+    if (!term) return filteredByVisibility;
+    return filteredByVisibility.filter((item) => {
       const name = (item.name || "").toLowerCase();
       const desc = (item.description || "").toLowerCase();
       const cat = (item.category || "").toLowerCase();
       return name.includes(term) || desc.includes(term) || cat.includes(term);
     });
-  }, [menu, menuSearch]);
+  }, [menu, menuSearch, menuFilter]);
 
   const categories = useMemo(() => {
     const set = new Set(filteredMenu.map((m) => m.category || "Uncategorized"));
@@ -479,15 +501,50 @@ export default function AdminDashboard() {
           <p className="muted">
             Manage staff, menu, and orders from one dashboard. Data is pulled live from the API.
           </p>
-          <div className="hero-actions">
-            <button className="ghost-btn" onClick={refreshAll} disabled={loading.refresh}>
-              {loading.refresh ? "Refreshing..." : "Refresh data"}
+        <div className="hero-actions">
+          <button className="ghost-btn" onClick={refreshAll} disabled={loading.refresh}>
+            {loading.refresh ? "Refreshing..." : "Refresh data"}
+          </button>
+          <div className="more-dropdown" ref={moreRef}>
+            <button
+              type="button"
+              className="ghost-btn"
+              onClick={() => setMoreOpen((prev) => !prev)}
+              aria-haspopup="true"
+              aria-expanded={moreOpen}
+            >
+              More
             </button>
-            <span className="pill live-chip">Secured with admin token</span>
-            <button className="danger-btn" onClick={handleLogout}>
-              Logout
-            </button>
+            {moreOpen ? (
+              <div className="more-menu-content">
+                <button
+                  type="button"
+                  className="ghost-btn small"
+                  onClick={() => {
+                    menuPanelRef.current?.scrollIntoView({ behavior: "smooth" });
+                    setMoreOpen(false);
+                  }}
+                >
+                  Manage menu
+                </button>
+                <button
+                  type="button"
+                  className="ghost-btn small"
+                  onClick={() => {
+                    setShowFullMenuModal(true);
+                    setMoreOpen(false);
+                  }}
+                >
+                  View full menu window
+                </button>
+              </div>
+            ) : null}
           </div>
+          <span className="pill live-chip">Secured with admin token</span>
+          <button className="danger-btn" onClick={handleLogout}>
+            Logout
+          </button>
+        </div>
         </div>
 
         <div className="stats-grid">
@@ -500,7 +557,7 @@ export default function AdminDashboard() {
 
       {error ? <div className="admin-alert">{error}</div> : null}
 
-      <div className="panel-grid">
+      
         <WaitersPanel
           waiters={waiters}
           loading={loading.waiters}
@@ -514,7 +571,34 @@ export default function AdminDashboard() {
           onReload={loadWaiters}
         />
 
+      {/* Orders */}
+      <OrdersPanel
+        filteredOrders={filteredOrders}
+        loadingOrders={loading.orders}
+        orderFilter={orderFilter}
+        setOrderFilter={setOrderFilter}
+        orderSearch={orderSearch}
+        setOrderSearch={setOrderSearch}
+        updateOrderStatus={updateOrderStatus}
+        orderActionId={orderActionId}
+        getAdminOrderActions={getAdminOrderActions}
+        getAgeLabel={getAgeLabel}
+        getItemCount={getItemCount}
+        formatStatus={formatStatus}
+        isLagging={isLagging}
+        onReload={loadOrders}
+      />
+      <MenuFullModal
+        open={showFullMenuModal}
+        onClose={() => setShowFullMenuModal(false)}
+        categories={categories}
+        filteredMenu={filteredMenu}
+      />
+      <div className="panel-grid">
+      
+
         <MenuPanel
+          ref={menuPanelRef}
           menuSearch={menuSearch}
           setMenuSearch={setMenuSearch}
           loadingMenu={loading.menu}
@@ -549,26 +633,12 @@ export default function AdminDashboard() {
           importSummary={importSummary}
           importMenuFile={importMenuFile}
           onReload={loadMenu}
+          maxCategoryList={3}
+          menuFilter={menuFilter}
+          setMenuFilter={setMenuFilter}
+          onViewAllClick={() => setShowFullMenuModal(true)}
         />
       </div>
-
-      {/* Orders */}
-      <OrdersPanel
-        filteredOrders={filteredOrders}
-        loadingOrders={loading.orders}
-        orderFilter={orderFilter}
-        setOrderFilter={setOrderFilter}
-        orderSearch={orderSearch}
-        setOrderSearch={setOrderSearch}
-        updateOrderStatus={updateOrderStatus}
-        orderActionId={orderActionId}
-        getAdminOrderActions={getAdminOrderActions}
-        getAgeLabel={getAgeLabel}
-        getItemCount={getItemCount}
-        formatStatus={formatStatus}
-        isLagging={isLagging}
-        onReload={loadOrders}
-      />
     </div>
   );
 }

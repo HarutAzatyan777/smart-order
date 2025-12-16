@@ -18,10 +18,17 @@ router.get('/', async (req, res) => {
 
     const snapshot = await query.orderBy("createdAt", "desc").get();
 
-    const list = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }));
+    const list = snapshot.docs.map(doc => {
+      const data = doc.data();
+      // Ensure timestamps are present even for legacy docs
+      if (!data.createdAt && doc.createTime) {
+        data.createdAt = doc.createTime;
+      }
+      if (!data.updatedAt && doc.updateTime) {
+        data.updatedAt = doc.updateTime;
+      }
+      return { id: doc.id, ...data };
+    });
 
     res.status(200).send(list);
   } catch (err) {
@@ -41,7 +48,11 @@ router.get('/:id', async (req, res) => {
       return res.status(404).send({ error: "Order not found" });
     }
 
-    res.send({ id: doc.id, ...doc.data() });
+    const data = doc.data();
+    if (!data.createdAt && doc.createTime) data.createdAt = doc.createTime;
+    if (!data.updatedAt && doc.updateTime) data.updatedAt = doc.updateTime;
+
+    res.send({ id: doc.id, ...data });
 
   } catch (err) {
     console.error("Admin GET single order error:", err);

@@ -21,6 +21,21 @@ module.exports = async function adminAuth(req, res, next) {
       return res.status(401).send({ error: "Missing authorization token" });
     }
 
+    const fallbackEmail = process.env.ADMIN_EMAIL || "admin@smartorder.com";
+    const isLegacyToken = !token.includes(".");
+    if (isLegacyToken) {
+      try {
+        const decodedString = Buffer.from(token, "base64").toString("utf8");
+        const emailFromToken = decodedString.split(":")[0];
+        if (emailFromToken && emailFromToken === fallbackEmail) {
+          req.user = { email: fallbackEmail, role: "admin", source: "dev-fallback" };
+          return next();
+        }
+      } catch (decodeErr) {
+        // ignore and continue to verify
+      }
+    }
+
     // Verify token
     try {
       const decoded = await admin.auth().verifyIdToken(token);
@@ -33,19 +48,6 @@ module.exports = async function adminAuth(req, res, next) {
       req.user = decoded; // store user data
       return next();
     } catch (verifyError) {
-      // Fallback: accept legacy/simple tokens for local dev (base64 of email:timestamp)
-      const fallbackEmail = process.env.ADMIN_EMAIL || "admin@smartorder.com";
-      try {
-        const decodedString = Buffer.from(token, "base64").toString("utf8");
-        const emailFromToken = decodedString.split(":")[0];
-        if (emailFromToken && emailFromToken === fallbackEmail) {
-          req.user = { email: fallbackEmail, role: "admin", source: "dev-fallback" };
-          return next();
-        }
-      } catch (decodeErr) {
-        // ignore and proceed to final error
-      }
-
       console.error("Admin auth verify error:", verifyError);
       return res.status(401).send({ error: "Invalid or expired token" });
     }

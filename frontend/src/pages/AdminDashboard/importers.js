@@ -51,7 +51,7 @@ async function parseXlsx(file) {
   try {
     const mod = await import("xlsx");
     XLSX = mod.default || mod;
-  } catch (err) {
+  } catch {
     const fallback = await import("xlsx/dist/xlsx.full.min.js");
     XLSX = fallback.default || fallback;
   }
@@ -85,7 +85,7 @@ async function parseDocx(file) {
   try {
     const mod = await import("mammoth/mammoth.browser.js");
     mammoth = mod.default || mod;
-  } catch (err) {
+  } catch {
     const fallback = await import("mammoth/mammoth.browser.min.js");
     mammoth = fallback.default || fallback;
   }

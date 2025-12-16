@@ -1,4 +1,4 @@
-import { forwardRef, useRef, useState } from "react";
+  import { forwardRef, useRef, useState } from "react";
 
 const MenuPanel = forwardRef(function MenuPanel({
   menuSearch,
@@ -13,6 +13,7 @@ const MenuPanel = forwardRef(function MenuPanel({
   menuDescription,
   setMenuDescription,
   addMenuItem,
+  imageUploadStatus,
   categories,
   filteredMenu,
   editingMenuId,
@@ -35,6 +36,14 @@ const MenuPanel = forwardRef(function MenuPanel({
   importSummary,
   importMenuFile,
   onReload,
+  menuImagePreview,
+  onMenuImageFileChange,
+  onMenuImageClear,
+  editMenuImagePreview,
+  editMenuImageUrl,
+  onEditMenuImageFileChange,
+  onEditMenuImageClearSelection,
+  onEditMenuImageRemove,
   maxCategoryList = Infinity,
   onViewAllClick,
   menuFilter,
@@ -43,6 +52,8 @@ const MenuPanel = forwardRef(function MenuPanel({
   const visibleCategories =
     maxCategoryList === Infinity ? categories : categories.slice(0, maxCategoryList);
   const fileInputRef = useRef(null);
+  const menuImageInputRef = useRef(null);
+  const editImageInputRef = useRef(null);
   const [openCategories, setOpenCategories] = useState({});
   const handleFileChange = async (e) => {
     const file = e.target.files?.[0];
@@ -50,18 +61,19 @@ const MenuPanel = forwardRef(function MenuPanel({
     e.target.value = "";
   };
 
-  const isCategoryOpen = (cat, idx) =>
-    openCategories.hasOwnProperty(cat) ? openCategories[cat] : idx < 2;
+  const hasCat = (cat) => Object.prototype.hasOwnProperty.call(openCategories, cat);
+
+  const isCategoryOpen = (cat, idx) => (hasCat(cat) ? openCategories[cat] : idx < 2);
 
   const toggleCategory = (cat, idx) => {
     setOpenCategories((prev) => {
-      const currentlyOpen = prev.hasOwnProperty(cat) ? prev[cat] : idx < 2;
+      const currentlyOpen = hasCat(cat) ? prev[cat] : idx < 2;
       return { ...prev, [cat]: !currentlyOpen };
     });
   };
 
   return (
-    <section className="admin-panel">
+    <section className="admin-panel" ref={ref}>
       <div className="panel-heading">
         <div>
           <p className="eyebrow soft">Menu</p>
@@ -174,8 +186,51 @@ const MenuPanel = forwardRef(function MenuPanel({
             onChange={(e) => setMenuDescription(e.target.value)}
           />
         </div>
-        <button className="primary-btn" onClick={addMenuItem} disabled={menuActionId === "new"}>
-          {menuActionId === "new" ? "Saving..." : "Add menu item"}
+        <div className="field full image-field">
+          <label>Item photo (optional)</label>
+          <div className="image-upload-panel">
+            <button
+              type="button"
+              className="outline-btn"
+              onClick={() => menuImageInputRef.current?.click()}
+            >
+              {menuImagePreview ? "Update photo" : "Upload photo"}
+            </button>
+            <button
+              type="button"
+              className="ghost-btn"
+              onClick={onMenuImageClear}
+              disabled={!menuImagePreview}
+            >
+              Remove
+            </button>
+            <input
+              ref={menuImageInputRef}
+              type="file"
+              accept="image/*"
+              style={{ display: "none" }}
+              onChange={(e) => onMenuImageFileChange?.(e.target.files?.[0])}
+            />
+          </div>
+          {menuImagePreview ? (
+            <div className="image-upload-preview">
+              <img src={menuImagePreview} alt="Preview" />
+              <span className="muted small">Preview of the uploaded photo.</span>
+            </div>
+          ) : (
+            <p className="muted small">Add an optional photo to make the item pop.</p>
+          )}
+        </div>
+        <button
+          className="primary-btn"
+          onClick={addMenuItem}
+          disabled={menuActionId === "new" || imageUploadStatus?.create}
+        >
+          {imageUploadStatus?.create
+            ? "Uploading photo..."
+            : menuActionId === "new"
+            ? "Saving..."
+            : "Add menu item"}
         </button>
       </div>
 
@@ -235,13 +290,66 @@ const MenuPanel = forwardRef(function MenuPanel({
                             onChange={(e) => setEditMenuDescription(e.target.value)}
                             placeholder="Description"
                           />
+                          <div className="field full image-field">
+                            <label>Item photo</label>
+                            <div className="image-upload-panel">
+                              <button
+                                type="button"
+                                className="outline-btn"
+                                onClick={() => editImageInputRef.current?.click()}
+                              >
+                                Change photo
+                              </button>
+                              {editMenuImagePreview ? (
+                                <button
+                                  type="button"
+                                  className="ghost-btn"
+                                  onClick={onEditMenuImageClearSelection}
+                                >
+                                  Reset selection
+                                </button>
+                              ) : null}
+                              <button
+                                type="button"
+                                className="ghost-btn"
+                                onClick={onEditMenuImageRemove}
+                                disabled={!editMenuImageUrl && !editMenuImagePreview}
+                              >
+                                Remove
+                              </button>
+                              <input
+                                ref={editImageInputRef}
+                                type="file"
+                                accept="image/*"
+                                style={{ display: "none" }}
+                                onChange={(e) => onEditMenuImageFileChange?.(e.target.files?.[0])}
+                              />
+                            </div>
+                            {(editMenuImagePreview || editMenuImageUrl) ? (
+                              <div className="image-upload-preview">
+                                <img
+                                  src={editMenuImagePreview || editMenuImageUrl}
+                                  alt="Menu preview"
+                                />
+                                <span className="muted small">
+                                  {editMenuImagePreview ? "New selection" : "Current image"}
+                                </span>
+                              </div>
+                            ) : (
+                              <p className="muted small">No photo yet. Upload one to highlight this dish.</p>
+                            )}
+                          </div>
                           <div className="menu-actions">
                             <button
                               className="primary-btn"
                               onClick={saveMenuItem}
-                              disabled={menuActionId === item.id}
+                              disabled={menuActionId === item.id || imageUploadStatus?.edit}
                             >
-                              {menuActionId === item.id ? "Saving..." : "Save"}
+                              {imageUploadStatus?.edit
+                                ? "Uploading photo..."
+                                : menuActionId === item.id
+                                ? "Saving..."
+                                : "Save"}
                             </button>
                             <button className="ghost-btn" onClick={cancelEditMenuItem}>
                               Cancel
@@ -250,6 +358,11 @@ const MenuPanel = forwardRef(function MenuPanel({
                         </div>
                       ) : (
                         <>
+                          {item.imageUrl ? (
+                            <div className="menu-card-image">
+                              <img src={item.imageUrl} alt={item.name || "Menu item"} />
+                            </div>
+                          ) : null}
                           <div className="menu-card-top">
                             <div>
                               <p className="muted small">{item.category || "Uncategorized"}</p>

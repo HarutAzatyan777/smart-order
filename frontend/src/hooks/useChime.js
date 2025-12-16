@@ -2,8 +2,13 @@ import { useCallback, useEffect, useRef } from "react";
 
 export default function useChime() {
   const contextRef = useRef(null);
+  const allowedRef = useRef(false);
+  const disableChime =
+    String(import.meta?.env?.VITE_DISABLE_CHIME || "").toLowerCase() === "true";
 
   const ensureContext = useCallback(() => {
+    if (disableChime) return null;
+    if (!allowedRef.current) return null; // only create after user gesture
     if (typeof window === "undefined") return null;
     if (contextRef.current) return contextRef.current;
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
@@ -11,7 +16,7 @@ export default function useChime() {
     const ctx = new AudioCtx();
     contextRef.current = ctx;
     return ctx;
-  }, []);
+  }, [disableChime]);
 
   const playChime = useCallback(
     (tone = "info") => {
@@ -20,6 +25,7 @@ export default function useChime() {
 
       if (ctx.state === "suspended") {
         ctx.resume().catch(() => {});
+        if (ctx.state !== "running") return; // bail if resume was blocked
       }
 
       const now = ctx.currentTime;
@@ -52,7 +58,21 @@ export default function useChime() {
   );
 
   useEffect(() => {
+    // Enable audio only after user gesture to satisfy autoplay policies
+    const resumeOnInteract = () => {
+      allowedRef.current = true;
+      const ctx = contextRef.current;
+      if (ctx && ctx.state === "suspended") {
+        ctx.resume().catch(() => {});
+      }
+    };
+
+    window.addEventListener("pointerdown", resumeOnInteract, { once: true });
+    window.addEventListener("keydown", resumeOnInteract, { once: true });
+
     return () => {
+      window.removeEventListener("pointerdown", resumeOnInteract);
+      window.removeEventListener("keydown", resumeOnInteract);
       if (contextRef.current) {
         contextRef.current.close();
         contextRef.current = null;

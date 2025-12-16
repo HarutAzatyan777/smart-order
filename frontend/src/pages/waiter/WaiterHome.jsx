@@ -60,8 +60,12 @@ function getWaiterActions(order) {
 }
 
 export default function WaiterHome() {
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const orders = useOrdersRealtime() || [];
+  const {
+    orders = [],
+    loading: ordersLoading,
+    error: ordersError,
+    refresh: refreshOrders
+  } = useOrdersRealtime() || {};
 
   const storedWaiterName = localStorage.getItem("waiterName") || "";
   const waiterId = localStorage.getItem("waiterId") || "";
@@ -125,10 +129,18 @@ export default function WaiterHome() {
   }, [filteredOrders]);
 
   const handleStatusChange = async (id, status) => {
+    if (!id) {
+      setError("Order is missing an ID.");
+      return;
+    }
+
     try {
       setError("");
       setLoadingId(id);
       await updateOrderStatus(id, status);
+      if (typeof refreshOrders === "function") {
+        await refreshOrders();
+      }
     } catch (err) {
       console.error("Update status error:", err);
       const msg = err?.response?.data?.error || "Could not update order.";
@@ -193,7 +205,7 @@ export default function WaiterHome() {
           <span>Only my orders{storedWaiterName ? ` (${displayWaiterName})` : ""}</span>
         </label>
 
-        <span className="live-dot">Live</span>
+        <span className="live-dot">Live (Firestore)</span>
       </div>
 
       <div className="status-cards">
@@ -211,16 +223,27 @@ export default function WaiterHome() {
         ))}
       </div>
 
-      {error && (
+      {(error || ordersError) && (
         <div className="alert error">
-          <span>{error}</span>
-          <button className="link-btn" onClick={() => setError("")}>
-            Dismiss
-          </button>
+          <span>{error || ordersError}</span>
+          {ordersError ? (
+            <button className="link-btn" onClick={refreshOrders}>
+              Retry loading orders
+            </button>
+          ) : (
+            <button className="link-btn" onClick={() => setError("")}>
+              Dismiss
+            </button>
+          )}
         </div>
       )}
 
-      {filteredOrders.length === 0 ? (
+      {ordersLoading ? (
+        <div className="panel empty-panel">
+          <p className="empty-title">Loading orders...</p>
+          <p className="muted small">Fetching latest tables and tickets.</p>
+        </div>
+      ) : filteredOrders.length === 0 ? (
         <div className="panel empty-panel">
           <p className="empty-title">No orders match right now.</p>
           <p className="muted small">

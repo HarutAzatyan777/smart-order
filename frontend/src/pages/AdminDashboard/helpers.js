@@ -46,7 +46,7 @@ export function fetchJson(url, options, fallbackMessage) {
     let data = null;
     try {
       data = await res.json();
-    } catch (err) {
+    } catch {
       data = null;
     }
 

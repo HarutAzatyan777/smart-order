@@ -1,18 +1,19 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { getOrders, createOrder, updateOrderStatus } from "../services/orders";
 
 export default function Orders() {
   const [orders, setOrders] = useState([]);
   const [newOrderText, setNewOrderText] = useState("");
 
-  useEffect(() => {
-    fetchOrders();
-  }, []);
-
-  const fetchOrders = async () => {
+  const fetchOrders = useCallback(async () => {
     const data = await getOrders();
     setOrders(data);
-  };
+  }, []);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchOrders();
+  }, [fetchOrders]);
 
   const handleCreate = async () => {
     if (!newOrderText) return;

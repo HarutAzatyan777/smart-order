@@ -21,6 +21,7 @@ import {
 } from "./helpers";
 import { normalizeMenuPayload, parseMenuFile } from "./importers";
 import MenuFullModal from "./components/MenuFullModal";
+import { uploadMenuImage } from "../../utils/uploadMenuImage";
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -43,6 +44,8 @@ export default function AdminDashboard() {
   const [menuPrice, setMenuPrice] = useState("");
   const [menuCategory, setMenuCategory] = useState("");
   const [menuDescription, setMenuDescription] = useState("");
+  const [menuImageFile, setMenuImageFile] = useState(null);
+  const [menuImagePreview, setMenuImagePreview] = useState("");
 
   // edit menu fields
   const [editingMenuId, setEditingMenuId] = useState(null);
@@ -50,6 +53,10 @@ export default function AdminDashboard() {
   const [editMenuPrice, setEditMenuPrice] = useState("");
   const [editMenuCategory, setEditMenuCategory] = useState("");
   const [editMenuDescription, setEditMenuDescription] = useState("");
+  const [editMenuImageFile, setEditMenuImageFile] = useState(null);
+  const [editMenuImagePreview, setEditMenuImagePreview] = useState("");
+  const [editMenuImageUrl, setEditMenuImageUrl] = useState("");
+  const [editMenuImageCleared, setEditMenuImageCleared] = useState(false);
 
   const [menuSearch, setMenuSearch] = useState("");
   const [orderSearch, setOrderSearch] = useState("");
@@ -57,6 +64,10 @@ export default function AdminDashboard() {
   const [menuFilter, setMenuFilter] = useState("all");
   const [importingMenu, setImportingMenu] = useState(false);
   const [importSummary, setImportSummary] = useState(null);
+  const [imageUploadStatus, setImageUploadStatus] = useState({
+    create: false,
+    edit: false
+  });
 
   const [error, setError] = useState("");
   const [loading, setLoading] = useState({
@@ -72,6 +83,87 @@ export default function AdminDashboard() {
   const moreRef = useRef(null);
   const [moreOpen, setMoreOpen] = useState(false);
   const [showFullMenuModal, setShowFullMenuModal] = useState(false);
+
+  useEffect(() => {
+    return () => {
+      if (menuImagePreview) {
+        URL.revokeObjectURL(menuImagePreview);
+      }
+    };
+  }, [menuImagePreview]);
+
+  useEffect(() => {
+    return () => {
+      if (editMenuImagePreview) {
+        URL.revokeObjectURL(editMenuImagePreview);
+      }
+    };
+  }, [editMenuImagePreview]);
+
+  const handleMenuImageFileChange = (file) => {
+    if (file && !file.type.startsWith("image/")) {
+      setError("Select a valid image file for the menu photo.");
+      return;
+    }
+
+    setMenuImageFile(file || null);
+    setMenuImagePreview((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      if (!file) return "";
+      return URL.createObjectURL(file);
+    });
+  };
+
+  const clearMenuImageSelection = () => {
+    setMenuImageFile(null);
+    setMenuImagePreview((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return "";
+    });
+  };
+
+  const handleEditMenuImageFileChange = (file) => {
+    if (file && !file.type.startsWith("image/")) {
+      setError("Select a valid image file for the menu photo.");
+      return;
+    }
+
+    setEditMenuImageCleared(false);
+    setEditMenuImageFile(file || null);
+    setEditMenuImagePreview((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      if (!file) return "";
+      return URL.createObjectURL(file);
+    });
+  };
+
+  const clearEditMenuImageSelection = () => {
+    setEditMenuImageFile(null);
+    setEditMenuImagePreview((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return "";
+    });
+    setEditMenuImageCleared(false);
+  };
+
+  const resetEditImagePreview = () => {
+    setEditMenuImageFile(null);
+    setEditMenuImagePreview((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return "";
+    });
+  };
+
+  const removeEditMenuImage = () => {
+    if (!editMenuImageUrl && !editMenuImagePreview) return;
+    setEditMenuImageFile(null);
+    setEditMenuImagePreview((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return "";
+    });
+    setEditMenuImageUrl("");
+    setEditMenuImageCleared(true);
+  };
 
   const refreshAll = async () => {
     setLoading((prev) => ({ ...prev, refresh: true }));
@@ -268,12 +360,27 @@ export default function AdminDashboard() {
       return;
     }
 
+    let uploadedImageUrl = null;
+    try {
+      if (menuImageFile) {
+        setImageUploadStatus((prev) => ({ ...prev, create: true }));
+        uploadedImageUrl = await uploadMenuImage(menuImageFile, token);
+      }
+    } catch (uploadError) {
+      console.error(uploadError);
+      setError(uploadError.message || "Could not upload image");
+      return;
+    } finally {
+      setImageUploadStatus((prev) => ({ ...prev, create: false }));
+    }
+
     const payload = {
       name: menuName.trim(),
       price: Number(menuPrice),
       category: menuCategory.trim(),
       description: menuDescription.trim(),
-      available: true
+      available: true,
+      imageUrl: uploadedImageUrl || null
     };
 
     try {
@@ -293,6 +400,7 @@ export default function AdminDashboard() {
       setMenuPrice("");
       setMenuCategory("");
       setMenuDescription("");
+      clearMenuImageSelection();
       loadMenu();
     } catch (err) {
       console.error(err);
@@ -308,6 +416,9 @@ export default function AdminDashboard() {
     setEditMenuPrice(item.price);
     setEditMenuCategory(item.category);
     setEditMenuDescription(item.description || "");
+    resetEditImagePreview();
+    setEditMenuImageUrl(item.imageUrl || "");
+    setEditMenuImageCleared(false);
   };
 
   const cancelEditMenuItem = () => {
@@ -316,6 +427,9 @@ export default function AdminDashboard() {
     setEditMenuPrice("");
     setEditMenuCategory("");
     setEditMenuDescription("");
+    resetEditImagePreview();
+    setEditMenuImageUrl("");
+    setEditMenuImageCleared(false);
   };
 
   const saveMenuItem = async () => {
@@ -326,12 +440,32 @@ export default function AdminDashboard() {
       return;
     }
 
+    let uploadedImageUrl;
+    if (editMenuImageFile) {
+      try {
+        setImageUploadStatus((prev) => ({ ...prev, edit: true }));
+        uploadedImageUrl = await uploadMenuImage(editMenuImageFile, token);
+      } catch (uploadError) {
+        console.error(uploadError);
+        setError(uploadError.message || "Could not upload image");
+        return;
+      } finally {
+        setImageUploadStatus((prev) => ({ ...prev, edit: false }));
+      }
+    } else if (editMenuImageCleared) {
+      uploadedImageUrl = null;
+    }
+
     const payload = {
       name: editMenuName.trim(),
       price: Number(editMenuPrice),
       category: editMenuCategory.trim(),
       description: editMenuDescription.trim()
     };
+
+    if (uploadedImageUrl !== undefined) {
+      payload.imageUrl = uploadedImageUrl;
+    }
 
     try {
       setMenuActionId(editingMenuId);
@@ -611,6 +745,10 @@ export default function AdminDashboard() {
           menuDescription={menuDescription}
           setMenuDescription={setMenuDescription}
           addMenuItem={addMenuItem}
+          imageUploadStatus={imageUploadStatus}
+          menuImagePreview={menuImagePreview}
+          onMenuImageFileChange={handleMenuImageFileChange}
+          onMenuImageClear={clearMenuImageSelection}
           categories={categories}
           filteredMenu={filteredMenu}
           editingMenuId={editingMenuId}
@@ -624,6 +762,11 @@ export default function AdminDashboard() {
           setEditMenuCategory={setEditMenuCategory}
           editMenuDescription={editMenuDescription}
           setEditMenuDescription={setEditMenuDescription}
+          editMenuImagePreview={editMenuImagePreview}
+          editMenuImageUrl={editMenuImageUrl}
+          onEditMenuImageFileChange={handleEditMenuImageFileChange}
+          onEditMenuImageClearSelection={clearEditMenuImageSelection}
+          onEditMenuImageRemove={removeEditMenuImage}
           saveMenuItem={saveMenuItem}
           toggleMenuAvailability={toggleMenuAvailability}
           deleteMenuItem={deleteMenuItem}
@@ -642,4 +785,3 @@ export default function AdminDashboard() {
     </div>
   );
 }
-

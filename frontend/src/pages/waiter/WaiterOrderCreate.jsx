@@ -13,6 +13,7 @@ export default function WaiterOrderCreate() {
   const [cart, setCart] = useState({});
   const [submitError, setSubmitError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [modalItem, setModalItem] = useState(null);
 
   const navigate = useNavigate();
 
@@ -156,6 +157,7 @@ export default function WaiterOrderCreate() {
           <Link to="/waiter/home" className="ghost-btn">
             Waiter Home
           </Link>
+          <span className="pill live-chip">Live (Firestore)</span>
           <div className="waiter-chip">
             <span className="pill-label">Waiter</span>
             <span>{waiterName}</span>
@@ -173,6 +175,14 @@ export default function WaiterOrderCreate() {
           ) : null}
         </div>
       )}
+
+      {!menuLoading && menu.length === 0 ? (
+        <div className="panel empty-panel">
+          <p className="empty-title">No menu items found in Firestore.</p>
+          <p className="muted small">Add items in the Admin panel, then reload this page.</p>
+          <button className="ghost-btn" onClick={refresh}>Reload menu</button>
+        </div>
+      ) : null}
 
       <div className="order-grid">
         <section className="panel menu-panel">
@@ -203,10 +213,15 @@ export default function WaiterOrderCreate() {
             <div className="skeleton">Loading menu...</div>
           ) : filteredMenu.length === 0 ? (
             <div className="empty-state">
-              No items match your search.{" "}
-              <button className="link-btn" onClick={() => setSearch("")}>
-                Clear search
-              </button>
+              No items match your search.
+              <div className="empty-actions">
+                <button className="link-btn" onClick={() => setSearch("")}>
+                  Clear search
+                </button>
+                <button className="link-btn" onClick={refresh}>
+                  Reload menu
+                </button>
+              </div>
             </div>
           ) : (
             <div className="menu-grid">
@@ -221,6 +236,7 @@ export default function WaiterOrderCreate() {
                     className={`menu-card ${hasImage ? "has-image" : "no-image"} ${
                       unavailable ? "is-disabled" : ""
                     }`}
+                    onClick={() => setModalItem({ ...item, itemKey })}
                   >
                     {hasImage ? (
                       <div className="menu-card-image">
@@ -278,16 +294,19 @@ export default function WaiterOrderCreate() {
                     <div className="menu-actions">
                       {cart[itemKey]?.qty ? (
                         <div className="qty-chip">
-                          <button onClick={() => decreaseQty(itemKey)}>-</button>
+                          <button onClick={(e) => { e.stopPropagation(); decreaseQty(itemKey); }}>-</button>
                           <span>{cart[itemKey].qty}</span>
-                          <button onClick={() => addToCart(item)} disabled={unavailable}>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); addToCart(item); }}
+                            disabled={unavailable}
+                          >
                             +
                           </button>
                         </div>
                       ) : (
                         <button
                           className="ghost-btn"
-                          onClick={() => addToCart(item)}
+                          onClick={(e) => { e.stopPropagation(); addToCart(item); }}
                           disabled={unavailable}
                         >
                           {unavailable ? "Out of stock" : "Add to order"}
@@ -314,17 +333,17 @@ export default function WaiterOrderCreate() {
             )}
           </div>
 
-          {cartItems.length === 0 ? (
-            <div className="empty-state">No items added yet.</div>
-          ) : (
-            <div className="cart-list">
-              {cartItems.map((item) => (
-                <div key={item.id} className="cart-row">
-                  <div>
-                    <p className="cart-title">{item.name}</p>
-                    <p className="muted small">
-                      {formatPrice(item.price)} each &bull;{" "}
-                      {formatPrice((Number(item.price) || 0) * (item.qty || 0))} total
+      {cartItems.length === 0 ? (
+        <div className="empty-state">No items added yet.</div>
+      ) : (
+        <div className="cart-list">
+          {cartItems.map((item) => (
+            <div key={item.id} className="cart-row">
+              <div>
+                <p className="cart-title">{item.name}</p>
+                <p className="muted small">
+                  {formatPrice(item.price)} each &bull;{" "}
+                  {formatPrice((Number(item.price) || 0) * (item.qty || 0))} total
                     </p>
                   </div>
 
@@ -376,6 +395,45 @@ export default function WaiterOrderCreate() {
           </button>
         </aside>
       </div>
+
+      {modalItem ? (
+        <div className="modal-backdrop" onClick={() => setModalItem(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <div>
+                <p className="eyebrow soft">Confirm selection</p>
+                <h3>{modalItem.name}</h3>
+                <p className="muted">{modalItem.description}</p>
+              </div>
+              <button className="ghost-btn" onClick={() => setModalItem(null)}>
+                Close
+              </button>
+            </div>
+            <div className="modal-body">
+              {modalItem.imageUrl ? (
+                <div className="modal-image">
+                  <img src={modalItem.imageUrl} alt={modalItem.name || "Menu item"} />
+                </div>
+              ) : null}
+              <span className="price">{formatPrice(modalItem.price)}</span>
+              {listify(modalItem.allergens) ? (
+                <p className="muted small">Allergens: {listify(modalItem.allergens)}</p>
+              ) : null}
+            </div>
+            <div className="modal-actions">
+              <button
+                className="primary-btn"
+                onClick={() => {
+                  addToCart(modalItem);
+                  setModalItem(null);
+                }}
+              >
+                Add to order
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

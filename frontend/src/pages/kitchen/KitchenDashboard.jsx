@@ -24,24 +24,31 @@ function normalizeStatus(status) {
 }
 
 function isOrderLagging(order) {
-  return order.createdAt && Date.now() - order.createdAt.getTime() > 15 * 60 * 1000;
+  const ts = order?.createdAt;
+  const t = ts instanceof Date ? ts.getTime() : Number(new Date(ts));
+  if (!t || Number.isNaN(t)) return false;
+  return Date.now() - t > 15 * 60 * 1000;
 }
 
 export default function KitchenDashboard() {
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const orders = useOrdersRealtime() || [];
+  const { orders = [], loading: ordersLoading, error: ordersError, refresh: refreshOrders } = useOrdersRealtime() || {};
   const { notifications, notify, dismiss } = useNotificationCenter();
   const [loadingId, setLoadingId] = useState(null);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [viewFilter, setViewFilter] = useState("active");
+  const [viewFilter, setViewFilter] = useState("all");
 
   const normalizedOrders = useMemo(
     () =>
-      orders.map((o) => ({
-        ...o,
-        status: normalizeStatus(o.status)
-      })),
+      orders.map((o) => {
+        const createdAt =
+          o?.createdAt instanceof Date ? o.createdAt : new Date(o?.createdAt);
+        return {
+          ...o,
+          createdAt: Number.isNaN(createdAt?.getTime()) ? null : createdAt,
+          status: normalizeStatus(o.status)
+        };
+      }),
     [orders]
   );
 
@@ -127,7 +134,7 @@ export default function KitchenDashboard() {
             <p className="kitchen-subtitle">Track and advance every order in real time.</p>
             <div className="top-meta">
               <span className="live-dot">Live</span>
-              <span className="pill subtle">Auto-refreshing from Firestore</span>
+              <span className="pill subtle">Firestore realtime feed</span>
             </div>
           </div>
 
@@ -176,7 +183,15 @@ export default function KitchenDashboard() {
         </div>
       </div>
 
-      {error && <p className="error-message">{error}</p>}
+      {(error || ordersError) && (
+        <div className="error-message">
+          <span>{error || ordersError}</span>
+          <button className="link-btn" onClick={refreshOrders}>
+            Retry
+          </button>
+        </div>
+      )}
+      {ordersLoading ? <div className="skeleton-row">Loading orders...</div> : null}
 
       <div className="kpi-grid">
         <div className="kpi-card">
@@ -212,6 +227,7 @@ export default function KitchenDashboard() {
             loadingId={loadingId}
             actions={getActionsForStatus(status.key)}
             helper={status.helper}
+            loading={ordersLoading}
           />
         ))}
       </div>
@@ -250,7 +266,7 @@ function getAgeLabel(date) {
 /* ===============================
    Section Component
 =============================== */
-function Section({ title, helper, orders, filter, handleUpdate, actions, loadingId }) {
+function Section({ title, helper, orders, filter, handleUpdate, actions, loadingId, loading }) {
   const filtered = [...orders]
     .filter((o) => o.status === filter)
     .sort((a, b) => {
@@ -269,8 +285,15 @@ function Section({ title, helper, orders, filter, handleUpdate, actions, loading
         <span className="section-count">{filtered.length} orders</span>
       </div>
 
-      {filtered.length === 0 ? (
-        <div className="empty-state">No orders in this stage right now.</div>
+      {loading ? (
+        <div className="empty-state">Loading orders...</div>
+      ) : filtered.length === 0 ? (
+        <div className="empty-state">
+          No orders in this stage right now.
+          {filter !== "all" ? (
+            <p className="muted small">Switch to "All statuses" to see closed orders.</p>
+          ) : null}
+        </div>
       ) : (
         <div className="order-grid">
           {filtered.map((o) => (
@@ -294,6 +317,9 @@ function Section({ title, helper, orders, filter, handleUpdate, actions, loading
 function OrderCard({ order, onAction, actions, loadingId }) {
   const isUpdating = loadingId === order.id;
   const ageLabel = getAgeLabel(order.createdAt);
+  const createdLabel = order.createdAt
+    ? order.createdAt.toLocaleString()
+    : "No timestamp";
   const itemCount = Array.isArray(order.items)
     ? order.items.reduce((sum, item) => sum + (item.qty || 1), 0)
     : 0;
@@ -315,6 +341,7 @@ function OrderCard({ order, onAction, actions, loadingId }) {
               <span className="pill light">{itemCount} items</span>
             ) : null}
             {ageLabel ? <span className="age-pill">{ageLabel}</span> : null}
+            <span className="pill ghost">Created: {createdLabel}</span>
           </div>
         </div>
         <span className={`status-chip status-${order.status}`}>{order.status}</span>

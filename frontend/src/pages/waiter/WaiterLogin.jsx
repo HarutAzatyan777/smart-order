@@ -36,7 +36,6 @@ export default function WaiterLogin() {
 
   // Load waiters
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadWaiters();
   }, [loadWaiters]);
 

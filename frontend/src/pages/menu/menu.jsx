@@ -261,17 +261,22 @@ export default function MenuPage() {
                           const selectionKey = getItemKey(item, itemIdx);
                           const selectedQty = selection[selectionKey]?.qty || 0;
 
-                          return (
-                            <article
-                              key={key}
-                              className="menu-card"
-                              onClick={() => setModalItem({ ...item, idx: itemIdx })}
-                            >
-                              <div className="menu-card-header">
-                                <div className="menu-card-title">
-                                  <h3>{item.name}</h3>
-                                  {item.sku ? (
-                                    <span className="tag subtle">SKU: {item.sku}</span>
+                              return (
+                                <article
+                                  key={key}
+                                  className="menu-card"
+                                  onClick={() => setModalItem({ ...item, idx: itemIdx })}
+                                >
+                                  {item.imageUrl ? (
+                                    <div className="menu-card-image">
+                                      <img src={item.imageUrl} alt={item.name || "Menu item"} />
+                                    </div>
+                                  ) : null}
+                                  <div className="menu-card-header">
+                                    <div className="menu-card-title">
+                                      <h3>{item.name}</h3>
+                                      {item.sku ? (
+                                        <span className="tag subtle">SKU: {item.sku}</span>
                                   ) : null}
                                 </div>
                                 <div className="price-stack">
@@ -369,6 +374,11 @@ export default function MenuPage() {
               </button>
             </div>
             <div className="modal-body">
+              {modalItem.imageUrl ? (
+                <div className="modal-image">
+                  <img src={modalItem.imageUrl} alt={modalItem.name || "Menu item"} />
+                </div>
+              ) : null}
               <span className="price">{formatPrice(modalItem.price)}</span>
               {listify(modalItem.allergens) ? (
                 <p className="muted small">Allergens: {listify(modalItem.allergens)}</p>

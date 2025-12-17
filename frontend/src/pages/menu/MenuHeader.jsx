@@ -1,5 +1,54 @@
-import { Link } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "./menuheader.css";
+
+const slugify = (value) =>
+  String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "") || "uncategorized";
+
+const defaultCategoryIcon = "\u{1F37D}";
+
+const normalizeCategory = (cat, idx) => {
+  if (!cat) {
+    return { key: `cat-${idx}`, label: "Unknown", value: "Unknown", icon: null };
+  }
+  if (typeof cat === "string") {
+    return { key: slugify(cat) || `cat-${idx}`, label: cat, value: cat, icon: null };
+  }
+  const label = cat.name || cat.label || cat.slug || `cat-${idx}`;
+  return {
+    key: slugify(cat.slug || label) || `cat-${idx}`,
+    label,
+    value: cat.slug || cat.value || label,
+    icon: cat.icon || null
+  };
+};
+
+const renderCategoryIcon = (icon, label) => {
+  if (icon?.type === "emoji") {
+    return <span aria-hidden="true">{icon.value || defaultCategoryIcon}</span>;
+  }
+  if (icon?.type === "svg" || icon?.type === "image") {
+    return (
+      <img
+        src={icon.value}
+        alt={`${label} icon`}
+        className="menu-tab__img"
+        loading="lazy"
+        decoding="async"
+      />
+    );
+  }
+  return <span aria-hidden="true">{defaultCategoryIcon}</span>;
+};
+
+const getShortLabel = (cat) => {
+  if (cat === "all") return "All";
+  const words = String(cat).split(" ").filter(Boolean);
+  const label = words.slice(0, 2).join(" ");
+  return label.length > 12 ? `${label.slice(0, 11)}…` : label;
+};
 
 export default function MenuHeader({
   controlsOpen,
@@ -25,6 +74,20 @@ export default function MenuHeader({
   onClearSelection,
   formatPrice
 }) {
+  const [activeCategory, setActiveCategory] = useState(() => category || "all");
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [showStartFade, setShowStartFade] = useState(false);
+  const [showEndFade, setShowEndFade] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const tabRailRef = useRef(null);
+  const moreRef = useRef(null);
+  const observerRef = useRef(null);
+
+  const categoriesWithAll = useMemo(() => {
+    const normalized = categories.map((cat, idx) => normalizeCategory(cat, idx));
+    return [{ key: "all", label: "All", value: "all", icon: null }, ...normalized];
+  }, [categories]);
+
   const activeFilters = [
     Boolean(category && category !== "all"),
     Boolean(search),
@@ -36,59 +99,300 @@ export default function MenuHeader({
     : "No filters";
 
   const selectionLabel = `${selectionCount} saved`;
+
+  useEffect(() => {
+    const updateIsMobile = () => setIsMobile(window.innerWidth <= 720);
+    updateIsMobile();
+    window.addEventListener("resize", updateIsMobile);
+    return () => window.removeEventListener("resize", updateIsMobile);
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (!moreRef.current) return;
+      if (!moreRef.current.contains(event.target)) {
+        setMoreOpen(false);
+      }
+    };
+
+    const handleEscape = (event) => {
+      if (event.key === "Escape") setMoreOpen(false);
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleEscape);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, []);
+
+  const scrollToCategory = useCallback((catValue) => {
+    if (catValue === "all") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+
+    const el = document.getElementById(`category-${slugify(catValue)}`);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, []);
+
+  const handleCategoryClick = (catValue) => {
+    setActiveCategory(catValue);
+    onCategory(catValue);
+    scrollToCategory(catValue);
+    setMoreOpen(false);
+  };
+
+  const checkRailOverflow = useCallback(() => {
+    const rail = tabRailRef.current;
+    if (!rail) return;
+    const maxScrollLeft = rail.scrollWidth - rail.clientWidth;
+    setShowStartFade(rail.scrollLeft > 6);
+    setShowEndFade(rail.scrollLeft < maxScrollLeft - 6);
+  }, []);
+
+  useEffect(() => {
+    const rail = tabRailRef.current;
+    if (!rail) return;
+
+    checkRailOverflow();
+    const onScroll = () => checkRailOverflow();
+    const onResize = () => checkRailOverflow();
+
+    rail.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onResize);
+
+    return () => {
+      rail.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onResize);
+    };
+  }, [categoriesWithAll, checkRailOverflow]);
+
+  useEffect(() => {
+    if (observerRef.current) {
+      observerRef.current.disconnect();
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio);
+
+        if (!visible.length) return;
+        const id = visible[0].target.id;
+        const matched = categoriesWithAll.find(
+          (cat) => id === `category-${slugify(cat.value)}`
+        );
+
+        if (matched) {
+          setActiveCategory((prev) => (prev === matched.value ? prev : matched.value));
+        }
+      },
+      {
+        root: null,
+        rootMargin: "-28% 0px -50% 0px",
+        threshold: [0.25, 0.4, 0.55]
+      }
+    );
+
+    categoriesWithAll
+      .filter((cat) => cat.value !== "all")
+      .forEach((cat) => {
+        const node = document.getElementById(`category-${slugify(cat.value)}`);
+        if (node) observer.observe(node);
+      });
+
+    observerRef.current = observer;
+    return () => observer.disconnect();
+  }, [categoriesWithAll]);
+
+  const openPanelSection = (selector) => {
+    if (!controlsOpen && onToggleControls) {
+      onToggleControls();
+    }
+
+    setTimeout(() => {
+      const node = document.querySelector(selector);
+      if (node) node.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 120);
+
+    setMoreOpen(false);
+  };
+
+  const handleMoreAction = (action) => {
+    switch (action) {
+      case "filter":
+        if (!controlsOpen && onToggleControls) {
+          onToggleControls();
+        }
+        setMoreOpen(false);
+        break;
+      case "search":
+        openPanelSection('[data-panel-target="search"]');
+        break;
+      case "sort":
+        openPanelSection('[data-panel-target="sort"]');
+        break;
+      case "saved":
+        openPanelSection('[data-panel-target="saved"]');
+        break;
+      case "cart":
+        openPanelSection('[data-panel-target="saved"]');
+        break;
+      case "refresh":
+        onRefresh?.();
+        setMoreOpen(false);
+        break;
+      case "clear":
+        onResetFilters?.();
+        setActiveCategory("all");
+        setMoreOpen(false);
+        break;
+      default:
+        break;
+    }
+  };
+
   return (
-    <div className={`menu-header-root ${controlsOpen ? "is-open" : "is-collapsed"}`}>
-      <header className="menu-header">
-        <div className="menu-header__text">
-          <div className="menu-header__title-row">
-            {/* <div>
-              <p className="eyebrow">Guest menu</p>
-              <h1>Menu</h1>
-            </div> */}
-            <div className="menu-header__pill-row">
-              <span className="menu-header__pill">{filteredCount} items</span>
-              <span className="menu-header__pill">{categoriesCount} categories</span>
-              {selectionCount > 0 ? (
-                <span className="menu-header__pill menu-header__pill--accent">
-                  {selectionCount} saved
-                </span>
-              ) : null}
-            </div>
+    <div className="menu-header-root compact">
+      <header className="menu-header-bar" role="banner">
+        <div className="menu-tab-rail-wrapper">
+       
+          <div
+            className="menu-tab-rail"
+            ref={tabRailRef}
+            role="tablist"
+            aria-label="Menu categories"
+            onWheel={(e) => {
+              if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+              tabRailRef.current?.scrollBy({ left: e.deltaY, behavior: "auto" });
+              checkRailOverflow();
+            }}
+          >
+            {categoriesWithAll.map((cat) => {
+              const isAll = cat.value === "all";
+              const count = isAll ? totalMenuCount : categoryCounts[cat.label] || 0;
+              const isActive = activeCategory === cat.value;
+
+              return (
+                <button
+                  key={cat.key}
+                  role="tab"
+                  aria-selected={isActive}
+                  tabIndex={isActive ? 0 : -1}
+                  className={`menu-tab${isActive ? " is-active" : ""}`}
+                  onClick={() => handleCategoryClick(cat.value)}
+                  aria-label={`Category ${cat.label}`}
+                  title={cat.label}
+                >
+                  <span className="menu-tab__icon" aria-hidden="true">
+                    {isAll ? "★" : renderCategoryIcon(cat.icon, cat.label)}
+                  </span>
+                  <span className="menu-tab__label">{getShortLabel(cat.label)}</span>
+                  <span className="menu-tab__count" aria-hidden="true">
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
           </div>
-          {controlsOpen ? (
-            <p className="muted">Showing dishes that are ready to serve right now.</p>
+       
+          {showStartFade ? (
+            <div className="menu-tab-rail__fade menu-tab-rail__fade--left" aria-hidden="true" />
+          ) : null}
+          {showEndFade ? (
+            <div className="menu-tab-rail__fade menu-tab-rail__fade--right" aria-hidden="true" />
           ) : null}
         </div>
 
-        <div className="menu-header__controls">
-          <div className="menu-header__chip-row">
-            <button
-              type="button"
-              className={`menu-chip ${controlsOpen ? "is-active" : ""}`}
-              onClick={onToggleControls}
-              aria-pressed={controlsOpen}
-              aria-expanded={controlsOpen}
-            >
-              <span className="menu-chip__label">Refine</span>
-              <span className="menu-chip__badge">
-                <span>{filterLabel}</span>
-                <span aria-hidden="true">|</span>
-                <span>{selectionLabel}</span>
-              </span>
-            </button>
-            <Link to="/waiter/create" className="menu-btn ghost small">
-              Call waiter
-            </Link>
+        <div className="menu-header-actions">
+          <div className="menu-more" ref={moreRef}>
+    
+            {moreOpen && isMobile ? (
+              <div className="menu-more__backdrop" onClick={() => setMoreOpen(false)}>
+                <div
+                  className="menu-more__dropdown is-mobile"
+                  role="menu"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="menu-more__mobile-header">
+                    <h4>More actions</h4>
+                    <button type="button" className="menu-more__close" onClick={() => setMoreOpen(false)}>
+                      Done
+                    </button>
+                  </div>
+                  <button type="button" role="menuitem" onClick={() => handleMoreAction("search")}>
+                    Search
+                  </button>
+                  <button type="button" role="menuitem" onClick={() => handleMoreAction("filter")}>
+                    Filter ({filterLabel})
+                  </button>
+                  <button type="button" role="menuitem" onClick={() => handleMoreAction("saved")}>
+                    Saved / Favorites ({selectionLabel})
+                  </button>
+                  <button type="button" role="menuitem" onClick={() => handleMoreAction("cart")}>
+                    Cart
+                  </button>
+                  <button type="button" role="menuitem" onClick={() => handleMoreAction("sort")}>
+                    Sort
+                  </button>
+                  <button type="button" role="menuitem" onClick={() => handleMoreAction("refresh")}>
+                    {loading ? "Refreshing..." : "Refresh menu"}
+                  </button>
+                  <button type="button" role="menuitem" onClick={() => handleMoreAction("clear")}>
+                    Clear filters
+                  </button>
+                  <div className="menu-more__meta" aria-hidden="true">
+                    {filteredCount} items · {categoriesCount} categories
+                  </div>
+                </div>
+              </div>
+            ) : null}
+            {moreOpen && !isMobile ? (
+              <div className="menu-more__dropdown" role="menu">
+                <button type="button" role="menuitem" onClick={() => handleMoreAction("search")}>
+                  Search
+                </button>
+                <button type="button" role="menuitem" onClick={() => handleMoreAction("filter")}>
+                  Filter ({filterLabel})
+                </button>
+                <button type="button" role="menuitem" onClick={() => handleMoreAction("saved")}>
+                  Saved / Favorites ({selectionLabel})
+                </button>
+                <button type="button" role="menuitem" onClick={() => handleMoreAction("cart")}>
+                  Cart
+                </button>
+                <button type="button" role="menuitem" onClick={() => handleMoreAction("sort")}>
+                  Sort
+                </button>
+                <button type="button" role="menuitem" onClick={() => handleMoreAction("refresh")}>
+                  {loading ? "Refreshing..." : "Refresh menu"}
+                </button>
+                <button type="button" role="menuitem" onClick={() => handleMoreAction("clear")}>
+                  Clear filters
+                </button>
+                <div className="menu-more__meta" aria-hidden="true">
+                  {filteredCount} items · {categoriesCount} categories
+                </div>
+              </div>
+            ) : null}
           </div>
-          <button
-            type="button"
-            className="menu-btn primary"
-            onClick={onRefresh}
-            disabled={loading}
-          >
-            {loading ? "Refreshing..." : "Refresh menu"}
-          </button>
         </div>
+                <button
+              type="button"
+              className="menu-more__button"
+              aria-expanded={moreOpen}
+              aria-haspopup="menu"
+              aria-label="More menu actions"
+              onClick={() => setMoreOpen((prev) => !prev)}
+            >
+              <span aria-hidden="true">...</span>
+            </button>
       </header>
 
       {controlsOpen ? (
@@ -104,7 +408,7 @@ export default function MenuHeader({
               </button>
             </div>
 
-            <section className="menu-panel-section">
+            <section className="menu-panel-section" data-panel-target="search">
               <header className="menu-panel-section__header">
                 <span>Search</span>
               </header>
@@ -126,7 +430,7 @@ export default function MenuHeader({
               </div>
             </section>
 
-            <section className="menu-panel-section">
+            <section className="menu-panel-section" data-panel-target="sort">
               <header className="menu-panel-section__header">
                 <span>Sort</span>
                 <p className="muted small">
@@ -147,7 +451,7 @@ export default function MenuHeader({
               </button>
             </section>
 
-            <section className="menu-panel-section">
+            <section className="menu-panel-section" data-panel-target="categories">
               <header className="menu-panel-section__header">
                 <span>Categories</span>
                 <p className="muted small">Tap a tab to focus the menu.</p>
@@ -160,22 +464,27 @@ export default function MenuHeader({
                   <span className="tab-icon">*</span>
                   <span>All ({totalMenuCount})</span>
                 </button>
-                {categories.map((cat) => (
-                  <button
-                    key={cat}
-                    className={`category-tab${category === cat ? " active" : ""}`}
-                    onClick={() => onCategory(cat)}
-                  >
-                    <span className="tab-icon">*</span>
-                    <span>
-                      {cat} ({categoryCounts[cat] || 0})
-                    </span>
-                  </button>
-                ))}
+                {categoriesWithAll
+                  .filter((cat) => cat.value !== "all")
+                  .map((cat) => (
+                    <button
+                      key={cat.key}
+                      className={`category-tab${category === cat.value ? " active" : ""}`}
+                      onClick={() => onCategory(cat.value)}
+                    >
+                      <span className="tab-icon">*</span>
+                      <span>
+                        {cat.label} ({categoryCounts[cat.label] || 0})
+                      </span>
+                    </button>
+                  ))}
               </div>
             </section>
 
-            <section className="menu-panel-section menu-panel-section--selections">
+            <section
+              className="menu-panel-section menu-panel-section--selections"
+              data-panel-target="saved"
+            >
               <header className="menu-panel-section__header">
                 <span>Selections</span>
                 {selectionCount > 0 ? (

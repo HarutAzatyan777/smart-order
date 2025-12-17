@@ -261,45 +261,46 @@ export default function MenuPage() {
                           const selectionKey = getItemKey(item, itemIdx);
                           const selectedQty = selection[selectionKey]?.qty || 0;
 
-                              return (
-                                <article
-                                  key={key}
-                                  className="menu-card"
-                                  onClick={() => setModalItem({ ...item, idx: itemIdx })}
-                                >
-                                  {item.imageUrl ? (
-                                    <div className="menu-card-image">
-                                      <img src={item.imageUrl} alt={item.name || "Menu item"} />
-                                    </div>
+                          return (
+                            <article
+                              key={key}
+                              className="menu-card"
+                              onClick={() => setModalItem({ ...item, idx: itemIdx })}
+                            >
+                              {item.imageUrl ? (
+                                <div className="menu-card-image">
+                                  <img src={item.imageUrl} alt={item.name || "Menu item"} />
+                                </div>
+                              ) : null}
+
+                              <div className="menu-card-body">
+                                <div className="menu-card-main">
+                                  <div className="menu-card-title">
+                                    <h3>{item.name}</h3>
+                                    {item.sku ? (
+                                      <span className="tag subtle">SKU: {item.sku}</span>
+                                    ) : null}
+                                  </div>
+                                  {item.description ? (
+                                    <p className="muted description">{item.description}</p>
                                   ) : null}
-                                  <div className="menu-card-header">
-                                    <div className="menu-card-title">
-                                      <h3>{item.name}</h3>
-                                      {item.sku ? (
-                                        <span className="tag subtle">SKU: {item.sku}</span>
-                                  ) : null}
+                                  <div className="tag-row">
+                                    {item.prepTime ? (
+                                      <span className="tag subtle">Prep: {item.prepTime}</span>
+                                    ) : null}
+                                    {item.spiceLevel ? (
+                                      <span className="tag warm">Spice: {item.spiceLevel}</span>
+                                    ) : null}
+                                    {listify(item.allergens) ? (
+                                      <span className="tag alert">
+                                        Allergens: {listify(item.allergens)}
+                                      </span>
+                                    ) : null}
+                                  </div>
                                 </div>
                                 <div className="price-stack">
                                   <span className="price">{formatPrice(item.price)}</span>
                                 </div>
-                              </div>
-
-                              {item.description ? (
-                                <p className="muted description">{item.description}</p>
-                              ) : null}
-
-                              <div className="tag-row">
-                                {item.prepTime ? (
-                                  <span className="tag subtle">Prep: {item.prepTime}</span>
-                                ) : null}
-                                {item.spiceLevel ? (
-                                  <span className="tag warm">Spice: {item.spiceLevel}</span>
-                                ) : null}
-                                {listify(item.allergens) ? (
-                                  <span className="tag alert">
-                                    Allergens: {listify(item.allergens)}
-                                  </span>
-                                ) : null}
                               </div>
 
                               <div className="card-actions">

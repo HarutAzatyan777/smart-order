@@ -7,7 +7,6 @@ const menuRouter = require('./routes/menu');
 const kitchenRouter = require('./routes/kitchen');
 const waiterRouter = require('./routes/waiter');
 const adminRouter = require('./routes/admin');
-const waitersAdminRouter = require('./routes/admin/waiters'); // <-- ADD THIS
 
 const app = express();
 
@@ -32,15 +31,12 @@ app.use('/menu', menuRouter);
 app.use('/kitchen', kitchenRouter);
 app.use('/waiter', waiterRouter);
 
-//image upload
-
 // Admin
 app.use('/admin', adminRouter);
-app.use('/waiters', waitersAdminRouter);  // <-- REGISTER THE ROUTE HERE
 
 // Error handler
 app.use((err, req, res, next) => {
-  console.error("🔥 SERVER ERROR:", err);
+  console.error("API SERVER ERROR:", err);
   res.status(500).send({
     error: "Internal server error",
     details: err.message

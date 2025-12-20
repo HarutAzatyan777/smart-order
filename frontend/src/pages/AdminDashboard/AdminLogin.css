@@ -1,25 +1,61 @@
 @import "../AdminDashboard/AdminDashboard.css";
 
 .admin-login-page {
-  min-height: 100vh;
-  display: grid;
-  place-items: center;
-  background: radial-gradient(circle at 18% 18%, rgba(16, 185, 129, 0.07), transparent 34%),
+  --admin-bg: radial-gradient(circle at 18% 18%, rgba(16, 185, 129, 0.07), transparent 34%),
     radial-gradient(circle at 82% 8%, rgba(14, 165, 233, 0.06), transparent 30%),
     radial-gradient(circle at 70% 78%, rgba(56, 189, 248, 0.06), transparent 30%),
     linear-gradient(135deg, #f8fafc 0%, #eef3f8 46%, #f4f8f2 100%);
+  --admin-text: #0f172a;
+  --admin-muted: #475569;
+  --admin-card: #fff;
+  --admin-border: #e5e7eb;
+  --admin-shadow: 0 18px 46px rgba(15, 23, 42, 0.1);
+  --admin-input-bg: #f8fafc;
+  --admin-input-border: #e2e8f0;
+  --admin-error-bg: #fef2f2;
+  --admin-error-border: #fecdd3;
+  --admin-error-text: #991b1b;
+  --admin-demo-bg: #f8fafc;
+  --admin-demo-border: #d1d5db;
+  --admin-code-bg: #0f172a;
+  --admin-code-text: #e2e8f0;
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  background: var(--admin-bg);
   padding: 24px;
-  color: #0f172a;
+  color: var(--admin-text);
   font-family: "Inter", system-ui, -apple-system, sans-serif;
+}
+
+:root[data-theme="dark"] .admin-login-page {
+  --admin-bg: radial-gradient(circle at 18% 18%, rgba(34, 197, 94, 0.08), transparent 34%),
+    radial-gradient(circle at 82% 8%, rgba(14, 165, 233, 0.08), transparent 30%),
+    radial-gradient(circle at 70% 78%, rgba(56, 189, 248, 0.08), transparent 30%),
+    linear-gradient(135deg, #0d162b 0%, #0b1326 45%, #0a1224 100%);
+  --admin-text: #e8edfa;
+  --admin-muted: #a7b1c7;
+  --admin-card: #0f162d;
+  --admin-border: rgba(255, 255, 255, 0.12);
+  --admin-shadow: 0 18px 46px rgba(0, 0, 0, 0.38);
+  --admin-input-bg: rgba(255, 255, 255, 0.06);
+  --admin-input-border: rgba(255, 255, 255, 0.2);
+  --admin-error-bg: rgba(239, 68, 68, 0.14);
+  --admin-error-border: rgba(239, 68, 68, 0.38);
+  --admin-error-text: #fecdd3;
+  --admin-demo-bg: rgba(255, 255, 255, 0.05);
+  --admin-demo-border: rgba(255, 255, 255, 0.14);
+  --admin-code-bg: #0b1224;
+  --admin-code-text: #e8edfa;
 }
 
 .admin-login-card {
   width: min(460px, 100%);
-  background: #fff;
-  border: 1px solid #e5e7eb;
+  background: var(--admin-card);
+  border: 1px solid var(--admin-border);
   border-radius: 16px;
   padding: 20px;
-  box-shadow: 0 18px 46px rgba(15, 23, 42, 0.1);
+  box-shadow: var(--admin-shadow);
   display: grid;
   gap: 12px;
 }
@@ -40,12 +76,12 @@
 }
 
 .admin-login-card input {
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--admin-input-border);
   border-radius: 12px;
   padding: 10px 12px;
-  background: #f8fafc;
+  background: var(--admin-input-bg);
   font-size: 14px;
-  color: #0f172a;
+  color: var(--admin-text);
 }
 
 .admin-login-card .primary-btn {
@@ -54,9 +90,9 @@
 
 .error-text {
   margin: 0;
-  color: #991b1b;
-  background: #fef2f2;
-  border: 1px solid #fecdd3;
+  color: var(--admin-error-text);
+  background: var(--admin-error-bg);
+  border: 1px solid var(--admin-error-border);
   border-radius: 10px;
   padding: 8px 10px;
   font-weight: 700;
@@ -64,8 +100,8 @@
 }
 
 .demo-box {
-  border: 1px dashed #d1d5db;
-  background: #f8fafc;
+  border: 1px dashed var(--admin-demo-border);
+  background: var(--admin-demo-bg);
   border-radius: 12px;
   padding: 12px;
   display: flex;
@@ -85,12 +121,12 @@
   align-items: center;
   gap: 10px;
   font-weight: 700;
-  color: #0f172a;
+  color: var(--admin-text);
 }
 
 .demo-row code {
-  background: #0f172a;
-  color: #e2e8f0;
+  background: var(--admin-code-bg);
+  color: var(--admin-code-text);
   padding: 6px 10px;
   border-radius: 10px;
   font-weight: 800;

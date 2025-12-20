@@ -1,5 +1,7 @@
-import { Link, NavLink } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, NavLink, useLocation } from "react-router-dom";
 import "./Header.css";
+import ThemeToggle from "../theme/ThemeToggle";
 
 const navLinks = [
   { to: "/", label: "Home", end: true },
@@ -10,8 +12,18 @@ const navLinks = [
 ];
 
 export default function Header() {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { pathname } = useLocation();
+  const navId = "primary-navigation";
+
+  useEffect(() => {
+    setIsMenuOpen(false);
+  }, [pathname]);
+
+  const toggleMenu = () => setIsMenuOpen((open) => !open);
+
   return (
-    <header className="app-header">
+    <header className={`app-header${isMenuOpen ? " is-menu-open" : ""}`}>
       <div className="header-shell">
         <Link to="/" className="brand">
           <span className="brand-mark">
@@ -23,31 +35,58 @@ export default function Header() {
           </span>
         </Link>
 
-        <nav className="nav-links">
-          {navLinks.map(({ to, label, end }) => (
-            <NavLink
-              key={to}
-              to={to}
-              end={end}
-              className={({ isActive }) =>
-                `nav-link${isActive ? " nav-link-active" : ""}`
-              }
-            >
-              <span className="link-dot" />
-              {label}
-            </NavLink>
-          ))}
-        </nav>
+        <button
+          type="button"
+          className={`menu-toggle${isMenuOpen ? " is-open" : ""}`}
+          aria-expanded={isMenuOpen}
+          aria-controls={navId}
+          onClick={toggleMenu}
+        >
+          <span className="menu-toggle-icon" aria-hidden>
+            <span />
+            <span />
+            <span />
+          </span>
+          <span className="menu-toggle-label">{isMenuOpen ? "Close" : "Menu"}</span>
+        </button>
 
-        <div className="header-actions">
-          <Link to="/waiter/create" className="action-btn">
-            Create order
-          </Link>
-          <Link to="/admin/login" className="action-btn ghost">
-            Admin login
-          </Link>
+        <div
+          id={navId}
+          className={`header-nav-area${isMenuOpen ? " is-open" : ""}`}
+          data-open={isMenuOpen}
+        >
+          <nav className="nav-links">
+            {navLinks.map(({ to, label, end }) => (
+              <NavLink
+                key={to}
+                to={to}
+                end={end}
+                className={({ isActive }) =>
+                  `nav-link${isActive ? " nav-link-active" : ""}`
+                }
+              >
+                <span className="link-dot" />
+                {label}
+              </NavLink>
+            ))}
+          </nav>
+
+          <div className="header-actions">
+            <ThemeToggle />
+            <Link to="/waiter/create" className="action-btn">
+              Create order
+            </Link>
+            <Link to="/admin/login" className="action-btn ghost">
+              Admin login
+            </Link>
+          </div>
         </div>
       </div>
+      <div
+        className="menu-overlay"
+        aria-hidden={!isMenuOpen}
+        onClick={() => setIsMenuOpen(false)}
+      />
     </header>
   );
 }

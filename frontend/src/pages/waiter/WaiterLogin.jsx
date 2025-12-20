@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { apiUrl } from "../../config/api";
 import "./WaiterLogin.css";
 
@@ -8,15 +8,17 @@ export default function WaiterLogin() {
   const [error, setError] = useState("");
   const [waiters, setWaiters] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [redirecting, setRedirecting] = useState(false);
 
-  const API = apiUrl("waiters");
+  const WAITERS_API = apiUrl("waiter/waiters");
+  const LOGIN_API = apiUrl("waiter/login");
 
   const loadWaiters = useCallback(async () => {
     setLoading(true);
     setError("");
 
     try {
-      const res = await fetch(API);
+      const res = await fetch(WAITERS_API);
       if (!res.ok) {
         const body = await res.text();
         throw new Error(body || `Request failed (${res.status})`);
@@ -32,19 +34,39 @@ export default function WaiterLogin() {
     } finally {
       setLoading(false);
     }
-  }, [API]);
+  }, [WAITERS_API]);
 
   // Load waiters
   useEffect(() => {
     loadWaiters();
   }, [loadWaiters]);
 
-  const selectedWaiter = useMemo(
-    () => waiters.find((w) => w.id === selectedWaiterId),
-    [waiters, selectedWaiterId]
-  );
+  // Auto-continue session if waiter is still active
+  useEffect(() => {
+    const forceLogin = sessionStorage.getItem("waiterForceLogin");
+    if (forceLogin) {
+      sessionStorage.removeItem("waiterForceLogin");
+      setSelectedWaiterId("");
+      setPin("");
+      setRedirecting(false);
+      return;
+    }
 
-  const handleLogin = () => {
+    const storedWaiterId = localStorage.getItem("waiterId");
+    const storedWaiterName = localStorage.getItem("waiterName");
+    if (!storedWaiterId || !storedWaiterName) return;
+
+    const stillActive = waiters.some((w) => w.id === storedWaiterId);
+    if (stillActive) {
+      setRedirecting(true);
+      window.location.href = "/waiter/home";
+    } else if (!loading) {
+      localStorage.removeItem("waiterId");
+      localStorage.removeItem("waiterName");
+    }
+  }, [waiters, loading]);
+
+  const handleLogin = async () => {
     setError("");
 
     if (!selectedWaiterId) {
@@ -52,20 +74,35 @@ export default function WaiterLogin() {
       return;
     }
 
-    if (!selectedWaiter) {
-      setError("Waiter not found.");
+    if (!pin.trim()) {
+      setError("Please enter your PIN.");
       return;
     }
 
-    if (selectedWaiter.pin !== pin.trim()) {
-      setError("Incorrect PIN. Please try again.");
-      return;
+    try {
+      const res = await fetch(LOGIN_API, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ waiterId: selectedWaiterId, pin })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.error || "Invalid login");
+      }
+
+      const fallbackName =
+        waiters.find((w) => w.id === selectedWaiterId)?.name || "Waiter";
+      const waiterName = data?.name || fallbackName;
+
+      localStorage.setItem("waiterId", data?.id || selectedWaiterId);
+      localStorage.setItem("waiterName", waiterName);
+
+      window.location.href = "/waiter/home";
+    } catch (err) {
+      console.error("Waiter login error:", err);
+      setError(err.message || "Invalid login");
     }
-
-    localStorage.setItem("waiterId", selectedWaiter.id);
-    localStorage.setItem("waiterName", selectedWaiter.name);
-
-    window.location.href = "/waiter/home";
   };
 
   const handleKeyDown = (e) => {
@@ -102,6 +139,7 @@ export default function WaiterLogin() {
                   setError("");
                 }}
                 onKeyDown={handleKeyDown}
+                disabled={redirecting}
               >
                 <option value="">Select your name</option>
                 {waiters.map((w) => (
@@ -124,11 +162,12 @@ export default function WaiterLogin() {
                   setError("");
                 }}
                 onKeyDown={handleKeyDown}
+                disabled={redirecting}
               />
             </label>
 
-            <button className="primary-btn" onClick={handleLogin}>
-              Login
+            <button className="primary-btn" onClick={handleLogin} disabled={redirecting}>
+              {redirecting ? "Redirecting..." : "Login"}
             </button>
 
             <p className="muted helper">

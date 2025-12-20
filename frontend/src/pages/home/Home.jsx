@@ -89,6 +89,16 @@ export default function Home() {
         </div>
       </section>
 
+      <section className="mockup">
+        <div className="mockup-frame">
+          <img
+            src="/smart-order.png"
+            alt="Smart Order interface preview"
+            loading="lazy"
+          />
+        </div>
+      </section>
+
       <section className="feature-section">
         <div className="feature-header">
           <h2>Built for service peaks</h2>

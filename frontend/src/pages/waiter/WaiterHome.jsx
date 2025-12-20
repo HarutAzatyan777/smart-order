@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { updateOrderStatus } from "../../api/ordersApi";
 import useOrdersRealtime from "../../hooks/useOrdersRealtime";
@@ -128,6 +128,19 @@ export default function WaiterHome() {
     return counts;
   }, [filteredOrders]);
 
+  useEffect(() => {
+    if (!waiterId || !storedWaiterName) {
+      window.location.replace("/waiter/login");
+    }
+  }, [waiterId, storedWaiterName]);
+
+  const handleLogout = () => {
+    localStorage.removeItem("waiterId");
+    localStorage.removeItem("waiterName");
+    sessionStorage.setItem("waiterForceLogin", "1");
+    window.location.replace("/waiter/login");
+  };
+
   const handleStatusChange = async (id, status) => {
     if (!id) {
       setError("Order is missing an ID.");
@@ -177,6 +190,9 @@ export default function WaiterHome() {
             <Link to="/waiter/create" className="primary-link">
               New order
             </Link>
+            <button type="button" className="danger-btn" onClick={handleLogout}>
+              Logout
+            </button>
           </div>
         </div>
       </header>

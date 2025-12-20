@@ -4,8 +4,6 @@ import { useNavigate } from "react-router-dom";
 import { apiUrl } from "../../config/api";
 
 export default function AdminLogin() {
-  const demoEmail = "admin@smartorder.com";
-  const demoPin = "Admin.1234";
   const [email, setEmail] = useState("");
   const [pin, setPin] = useState("");
   const [error, setError] = useState("");
@@ -34,11 +32,6 @@ export default function AdminLogin() {
     } catch (err) {
       setError(err.message || "Invalid login");
     }
-  };
-
-  const fillDemoCredentials = () => {
-    setEmail(demoEmail);
-    setPin(demoPin);
   };
 
   return (
@@ -73,28 +66,6 @@ export default function AdminLogin() {
         </button>
 
         {error ? <p className="error-text">{error}</p> : null}
-
-        <div className="demo-box">
-          <div>
-            <p className="eyebrow soft">Demo access</p>
-            <p className="muted small">
-              Use these demo credentials to explore the admin dashboard quickly.
-            </p>
-            <div className="demo-rows">
-              <div className="demo-row">
-                <span>Email</span>
-                <code>{demoEmail}</code>
-              </div>
-              <div className="demo-row">
-                <span>PIN</span>
-                <code>{demoPin}</code>
-              </div>
-            </div>
-          </div>
-          <button className="ghost-btn" onClick={fillDemoCredentials}>
-            Fill login
-          </button>
-        </div>
       </div>
     </div>
   );

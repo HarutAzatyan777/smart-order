@@ -4,6 +4,63 @@ const { db } = require('../../admin');
 const { FieldValue } = require('firebase-admin/firestore');
 
 // =======================================
+// WAITER: Public roster (no PINs)
+// =======================================
+router.get('/waiters', async (_req, res) => {
+  try {
+    const snapshot = await db.collection("waiters").get();
+    const waiters = snapshot.docs
+      .map(doc => ({ id: doc.id, ...doc.data() }))
+      .filter(w => w.active !== false)
+      .map(w => ({ id: w.id, name: w.name || "Waiter" }));
+
+    res.status(200).send(waiters);
+  } catch (error) {
+    console.error("Waiter roster error:", error);
+    res.status(500).send({ error: error.message });
+  }
+});
+
+// =======================================
+// WAITER: Login (server-side PIN check)
+// =======================================
+router.post('/login', async (req, res) => {
+  try {
+    const { waiterId, pin } = req.body || {};
+
+    if (!waiterId || !pin) {
+      return res.status(400).send({ error: "Missing waiter ID or PIN" });
+    }
+
+    const docRef = db.collection("waiters").doc(waiterId);
+    const doc = await docRef.get();
+
+    if (!doc.exists) {
+      return res.status(401).send({ error: "Invalid credentials" });
+    }
+
+    const data = doc.data() || {};
+
+    if (data.active === false) {
+      return res.status(403).send({ error: "Waiter is inactive" });
+    }
+
+    const storedPin = data.pin ? String(data.pin).trim() : "";
+    if (storedPin !== String(pin).trim()) {
+      return res.status(401).send({ error: "Invalid credentials" });
+    }
+
+    res.status(200).send({
+      id: doc.id,
+      name: data.name || "Waiter"
+    });
+  } catch (error) {
+    console.error("Waiter login error:", error);
+    res.status(500).send({ error: error.message });
+  }
+});
+
+// =======================================
 // WAITER: Create New Order
 // =======================================
 router.post('/create', async (req, res) => {

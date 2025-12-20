@@ -130,7 +130,7 @@ export default function WaiterHome() {
 
   useEffect(() => {
     if (!waiterId || !storedWaiterName) {
-      window.location.replace("/waiter/login");
+      window.location.replace("/waiter");
     }
   }, [waiterId, storedWaiterName]);
 
@@ -138,7 +138,7 @@ export default function WaiterHome() {
     localStorage.removeItem("waiterId");
     localStorage.removeItem("waiterName");
     sessionStorage.setItem("waiterForceLogin", "1");
-    window.location.replace("/waiter/login");
+    window.location.replace("/waiter");
   };
 
   const handleStatusChange = async (id, status) => {

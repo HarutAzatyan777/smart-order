@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import useMenu from "../../hooks/useMenu";
-import MenuHeader from "./MenuHeader";
 import "./menu.css";
 
 export default function MenuPage() {
@@ -8,26 +7,11 @@ export default function MenuPage() {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
   const [sortBy, setSortBy] = useState("featured");
-  const [selection, setSelection] = useState({});
-  const [modalItem, setModalItem] = useState(null);
-  const [controlsOpen, setControlsOpen] = useState(false);
-  const [openSections, setOpenSections] = useState({});
-
-  const refreshMenu = useCallback(() => {
-    refresh();
-  }, [refresh]);
 
   const categories = useMemo(() => {
-    const set = new Set();
-    menu.forEach((item) => set.add(item.category || "Uncategorized"));
+    const set = new Set(menu.map((item) => item.category || "Uncategorized"));
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [menu]);
-
-  const listify = (value) => {
-    if (!value) return "";
-    if (Array.isArray(value)) return value.filter(Boolean).join(", ");
-    return String(value);
-  };
 
   const filteredMenu = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -38,9 +22,6 @@ export default function MenuPage() {
         item.name,
         item.description,
         item.category,
-        listify(item.ingredients),
-        listify(item.addons),
-        listify(item.allergens),
         item.notes
       ]
         .filter(Boolean)
@@ -83,92 +64,11 @@ export default function MenuPage() {
       if (!map.has(key)) map.set(key, []);
       map.get(key).push(item);
     });
-    return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+    return Array.from(map.entries());
   }, [filteredMenu]);
 
   const formatPrice = (value) =>
     `${Number(value || 0).toLocaleString("en-US")} AMD`;
-
-  const getItemKey = (item, idx) => item.id || item.sku || `${item.name}-${idx}`;
-
-  const slugify = (value) =>
-    String(value || "")
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/(^-|-$)/g, "") || "uncategorized";
-
-  const ensureSectionOpen = useCallback(
-    // eslint-disable-next-line no-prototype-builtins
-    (cat, idx) => (openSections.hasOwnProperty(cat) ? openSections[cat] : idx < 2),
-    [openSections]
-  );
-
-  const toggleSection = useCallback(
-    (cat, idx) => {
-      setOpenSections((prev) => {
-        // eslint-disable-next-line no-prototype-builtins
-        const currentlyOpen = prev.hasOwnProperty(cat) ? prev[cat] : idx < 2;
-        return {
-          ...prev,
-          [cat]: !currentlyOpen
-        };
-      });
-    },
-    []
-  );
-
-  useEffect(() => {
-    if (category === "all") return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setOpenSections((prev) => ({
-      ...prev,
-      [category]: true
-    }));
-  }, [category]);
-
-  const addToSelection = (item, idx) => {
-    const key = getItemKey(item, idx);
-    if (!key) return;
-    setSelection((prev) => ({
-      ...prev,
-      [key]: { ...item, id: key, qty: (prev[key]?.qty || 0) + 1 }
-    }));
-    setModalItem(null);
-  };
-
-  const decreaseSelection = (key) => {
-    setSelection((prev) => {
-      if (!prev[key]) return prev;
-      const nextQty = (prev[key].qty || 1) - 1;
-      if (nextQty <= 0) {
-        const copy = { ...prev };
-        delete copy[key];
-        return copy;
-      }
-      return {
-        ...prev,
-        [key]: { ...prev[key], qty: nextQty }
-      };
-    });
-  };
-
-  const clearSelection = () => setSelection({});
-
-  const selectedItems = useMemo(() => Object.values(selection), [selection]);
-  const selectedCount = useMemo(
-    () => selectedItems.reduce((sum, item) => sum + (item.qty || 0), 0),
-    [selectedItems]
-  );
-
-  const categoryCounts = useMemo(
-    () =>
-      menu.reduce((acc, item) => {
-        const key = item.category || "Uncategorized";
-        acc[key] = (acc[key] || 0) + 1;
-        return acc;
-      }, {}),
-    [menu]
-  );
 
   const resetFilters = () => {
     setSearch("");
@@ -176,226 +76,149 @@ export default function MenuPage() {
     setSortBy("featured");
   };
 
+  const availableCount = menu.filter((m) => m.available !== false).length;
+
   return (
-    <div className="menu-page presentation">
-      <div className="menu-shell-12">
-        <MenuHeader
-          controlsOpen={controlsOpen}
-          onToggleControls={() => setControlsOpen((prev) => !prev)}
-          onRefresh={refreshMenu}
-          loading={loading}
-          filteredCount={filteredMenu.length}
-          categoriesCount={categories.length}
-          search={search}
-          onSearch={setSearch}
-          sortBy={sortBy}
-          onSort={setSortBy}
-          category={category}
-          onCategory={setCategory}
-          categories={categories}
-          categoryCounts={categoryCounts}
-          totalMenuCount={menu.length}
-          onResetFilters={resetFilters}
-          selectionItems={selectedItems}
-          selectionCount={selectedCount}
-          onIncreaseSelection={addToSelection}
-          onDecreaseSelection={decreaseSelection}
-          onClearSelection={clearSelection}
-          formatPrice={formatPrice}
-        />
+    <div className="menu-v2">
+      <div className="menu-v2__shell">
+        <header className="menu-v2__hero">
+          <div>
+            <p className="menu-v2__eyebrow">Menu</p>
+            <h1 className="menu-v2__title">Find your next favorite</h1>
+            <p className="menu-v2__lede">
+              Browse the full list of dishes, filtered by category and crafted fresh.
+            </p>
+            <div className="menu-v2__chips">
+              <span className="menu-v2__chip">{menu.length} items</span>
+              <span className="menu-v2__chip">{categories.length} categories</span>
+              <span className="menu-v2__chip">{availableCount} available</span>
+            </div>
+          </div>
+          <div className="menu-v2__hero-actions">
+            <button className="menu-v2__btn ghost" type="button" onClick={resetFilters}>
+              Reset filters
+            </button>
+            <button
+              className="menu-v2__btn primary"
+              type="button"
+              onClick={refresh}
+              disabled={loading}
+            >
+              {loading ? "Refreshing..." : "Reload menu"}
+            </button>
+          </div>
+        </header>
+
+        <section className="menu-v2__controls">
+          <div className="menu-v2__control">
+            <label htmlFor="menu-search">Search dishes</label>
+            <input
+              id="menu-search"
+              type="search"
+              placeholder="Type a dish, ingredient, or category"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <div className="menu-v2__control">
+            <label htmlFor="menu-category">Category</label>
+            <select
+              id="menu-category"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+            >
+              <option value="all">All categories</option>
+              {categories.map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="menu-v2__control">
+            <label htmlFor="menu-sort">Sort by</label>
+            <select id="menu-sort" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
+              <option value="featured">Featured (by category)</option>
+              <option value="alpha">A → Z</option>
+              <option value="price-asc">Price: low to high</option>
+              <option value="price-desc">Price: high to low</option>
+            </select>
+          </div>
+        </section>
 
         {error ? (
-          <div className="menu-alert">
+          <div className="menu-v2__alert">
             <div>
-              <p className="alert-title">Could not load the menu</p>
-              <p className="muted">{error}</p>
+              <p className="menu-v2__alert-title">Could not load the menu</p>
+              <p className="menu-v2__text">{error}</p>
             </div>
-            <button className="menu-btn-12 ghost" onClick={refresh}>
+            <button className="menu-v2__btn ghost" onClick={refresh}>
               Retry
             </button>
           </div>
         ) : null}
 
-        <div className="menu-layout">
-          <section className="menu-collection">
-            {loading ? (
-              <div className="menu-placeholder">Loading menu...</div>
-            ) : groupedMenu.length === 0 ? (
-              <div className="menu-empty">
-                <p className="empty-title">No dishes match these filters.</p>
-                <p className="muted">Try adjusting the search or reload.</p>
-                <div className="empty-actions">
-                  <button className="menu-btn primary" onClick={resetFilters}>
-                    Reset filters
-                  </button>
-                  <button className="menu-btn ghost" onClick={refresh}>
-                    Reload
-                  </button>
-                </div>
-              </div>
-            ) : (
-              groupedMenu.map(([cat, items], idx) => {
-                const sectionOpen = ensureSectionOpen(cat, idx);
-                return (
-                  <div key={cat} className="menu-section" id={`category-${slugify(cat)}`}>
-                    <div className="section-head">
-                      <div>
-                        <p className="eyebrow">Category</p>
-                        <h2>{cat}</h2>
-                      </div>
-                      <div className="section-head-actions">
-                        <span className="count-chip">{items.length} items</span>
-                        <button
-                          className="menu-btn ghost small"
-                          onClick={() => toggleSection(cat, idx)}
-                        >
-                          {sectionOpen ? "Collapse" : "Show dishes"}
-                        </button>
-                      </div>
-                    </div>
+        {loading ? <div className="menu-v2__loading">Loading menu...</div> : null}
 
-                    {sectionOpen ? (
-                      <div className="menu-grid">
-                        {items.map((item, itemIdx) => {
-                          const key = item.id || `${item.name}-${itemIdx}`;
-                          const selectionKey = getItemKey(item, itemIdx);
-                          const selectedQty = selection[selectionKey]?.qty || 0;
-
-                          return (
-                            <article
-                              key={key}
-                              className="menu-card"
-                              onClick={() => setModalItem({ ...item, idx: itemIdx })}
-                            >
-                              {item.imageUrl ? (
-                                <div className="menu-card-image">
-                                  <img src={item.imageUrl} alt={item.name || "Menu item"} />
-                                </div>
-                              ) : null}
-
-                              <div className="menu-card-body">
-                                <div className="menu-card-main">
-                                  <div className="menu-card-title">
-                                    <h3>{item.name}</h3>
-                                    {item.sku ? (
-                                      <span className="tag subtle">SKU: {item.sku}</span>
-                                    ) : null}
-                                  </div>
-                                  {item.description ? (
-                                    <p className="muted description">{item.description}</p>
-                                  ) : null}
-                                  <div className="tag-row">
-                                    {item.prepTime ? (
-                                      <span className="tag subtle">Prep: {item.prepTime}</span>
-                                    ) : null}
-                                    {item.spiceLevel ? (
-                                      <span className="tag warm">Spice: {item.spiceLevel}</span>
-                                    ) : null}
-                                    {listify(item.allergens) ? (
-                                      <span className="tag alert">
-                                        Allergens: {listify(item.allergens)}
-                                      </span>
-                                    ) : null}
-                                  </div>
-                                </div>
-                                <div className="price-stack">
-                                  <span className="price">{formatPrice(item.price)}</span>
-                                </div>
-                              </div>
-
-                              <div className="card-actions">
-                                {selectedQty > 0 ? (
-                                  <div className="qty-chip small">
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        decreaseSelection(selectionKey);
-                                      }}
-                                    >
-                                      -
-                                    </button>
-                                    <span>{selectedQty}</span>
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        addToSelection(item, itemIdx);
-                                      }}
-                                    >
-                                      +
-                                    </button>
-                                  </div>
-                                ) : (
-                                  <button
-                                    className="menu-btn ghost"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      addToSelection(item, itemIdx);
-                                    }}
-                                  >
-                                    Save choice
-                                  </button>
-                                )}
-                              </div>
-                            </article>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <div className="section-collapsed">
-                        <p className="muted">
-                          {items.length} dishes in this category are hidden to keep the menu tidy.
-                        </p>
-                        <button
-                          className="menu-btn ghost small"
-                          onClick={() => toggleSection(cat, idx)}
-                        >
-                          Show dishes
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                );
-              })
-            )}
-          </section>
-        </div>
-      </div>
-
-      {modalItem ? (
-        <div className="modal-backdrop" onClick={() => setModalItem(null)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <div>
-                <p className="eyebrow soft">Confirm selection</p>
-                <h3>{modalItem.name}</h3>
-                <p className="muted">{modalItem.description}</p>
-              </div>
-              <button className="ghost-btn" onClick={() => setModalItem(null)}>
-                Close
+        {!loading && groupedMenu.length === 0 ? (
+          <div className="menu-v2__empty">
+            <h3>No dishes match these filters.</h3>
+            <p className="menu-v2__text">Try another search or reload the menu.</p>
+            <div className="menu-v2__empty-actions">
+              <button className="menu-v2__btn primary" onClick={resetFilters}>
+                Clear filters
               </button>
-            </div>
-            <div className="modal-body">
-              {modalItem.imageUrl ? (
-                <div className="modal-image">
-                  <img src={modalItem.imageUrl} alt={modalItem.name || "Menu item"} />
-                </div>
-              ) : null}
-              <span className="price">{formatPrice(modalItem.price)}</span>
-              {listify(modalItem.allergens) ? (
-                <p className="muted small">Allergens: {listify(modalItem.allergens)}</p>
-              ) : null}
-            </div>
-            <div className="modal-actions">
-              <button
-                className="menu-btn primary"
-                onClick={() => addToSelection(modalItem, modalItem.idx)}
-              >
-                Save choice
+              <button className="menu-v2__btn ghost" onClick={refresh}>
+                Reload
               </button>
             </div>
           </div>
-        </div>
-      ) : null}
+        ) : (
+          groupedMenu.map(([cat, items]) => (
+            <section className="menu-v2__section" key={cat} id={`category-${cat}`}>
+              <div className="menu-v2__section-head">
+                <div>
+                  <p className="menu-v2__eyebrow">Category</p>
+                  <h2>{cat}</h2>
+                </div>
+                <span className="menu-v2__chip subtle">{items.length} items</span>
+              </div>
+              <div className="menu-v2__grid">
+                {items.map((item, idx) => (
+                  <article
+                    key={item.id || `${item.name}-${idx}`}
+                    className="menu-v2__card"
+                  >
+                    {item.imageUrl ? (
+                      <div className="menu-v2__card-image">
+                        <img src={item.imageUrl} alt={item.name || "Menu item"} />
+                      </div>
+                    ) : null}
+                    <div className="menu-v2__card-body">
+                      <div className="menu-v2__card-top">
+                        <h3>{item.name}</h3>
+                        <span className="menu-v2__price">{formatPrice(item.price)}</span>
+                      </div>
+                      {item.description ? (
+                        <p className="menu-v2__text">{item.description}</p>
+                      ) : null}
+                      <div className="menu-v2__meta">
+                        {item.prepTime ? (
+                          <span className="menu-v2__pill">Prep: {item.prepTime}</span>
+                        ) : null}
+                        {item.spiceLevel ? (
+                          <span className="menu-v2__pill warm">Spice: {item.spiceLevel}</span>
+                        ) : null}
+                      </div>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </section>
+          ))
+        )}
+      </div>
     </div>
   );
 }
+

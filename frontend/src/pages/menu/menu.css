@@ -278,7 +278,7 @@
 .menu-v2__fab {
   position: fixed;
   right: 16px;
-  bottom: 18px;
+  top: 18px;
   padding: 12px 16px;
   border-radius: 999px;
   border: none;

@@ -4,8 +4,8 @@
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#0b1426",
-  "theme_color": "#0b1426",
+  "background_color": "#f7f9fc",
+  "theme_color": "#f7f9fc",
   "description": "Real-time restaurant ticketing with kitchen and admin dashboards.",
   "lang": "en",
   "icons": [

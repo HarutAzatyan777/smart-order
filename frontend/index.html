@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="light">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -24,8 +24,8 @@
     <meta name="robots" content="index,follow" />
     <meta name="author" content="Smart Order" />
     <meta name="application-name" content="Smart Order" />
-    <meta name="theme-color" content="#0b1426" />
-    <meta name="msapplication-TileColor" content="#0b1426" />
+    <meta name="theme-color" content="#f7f9fc" />
+    <meta name="msapplication-TileColor" content="#f7f9fc" />
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
@@ -59,6 +59,22 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Smart Order" />
+    <script>
+      (function applyInitialTheme() {
+        var storageKey = "smart-order-theme";
+        var root = document.documentElement;
+
+        try {
+          var stored = localStorage.getItem(storageKey);
+          var theme = stored === "light" || stored === "dark" ? stored : "light";
+          root.setAttribute("data-theme", theme);
+          root.style.colorScheme = theme;
+        } catch (error) {
+          root.setAttribute("data-theme", "light");
+          root.style.colorScheme = "light";
+        }
+      })();
+    </script>
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",

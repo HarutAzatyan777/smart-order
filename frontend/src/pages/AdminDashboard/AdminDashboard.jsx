@@ -306,7 +306,7 @@ export default function AdminDashboard() {
     <div className="admin-dashboard">
       <header className="admin-hero">
         <div>
-          <p className="eyebrow">Admin console</p>
+          <p className="eyebrow-1">Admin console</p>
           <h1 className="hero-title">Command center</h1>
           <p className="muted">
             Manage staff, menu, and orders from one dashboard. Data is pulled live from the API.

@@ -536,6 +536,30 @@
 }
 
 @media (max-width: 640px) {
+  .home-page {
+    padding: 22px 14px 48px;
+  }
+
+  .hero,
+  .feature-section,
+  .flow-card,
+  .mockup {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .hero {
+    padding: 18px 14px;
+  }
+
+  .feature-section {
+    padding: 16px 14px;
+  }
+
+  .flow-card {
+    padding: 18px 14px;
+  }
+
   .hero,
   .feature-section,
   .flow-card {
@@ -555,12 +579,24 @@
     min-height: auto;
   }
 
+  .panel-card.waiter-card {
+    padding: 14px;
+    gap: 8px;
+  }
+
+  .panel-card.waiter-card h3 {
+    font-size: 20px;
+  }
+
   .panel-grid {
     grid-template-columns: 1fr;
+  }
+
+  .mockup-frame {
+    padding: 12px;
   }
 
   .flow-card ol {
     gap: 8px;
   }
 }
-

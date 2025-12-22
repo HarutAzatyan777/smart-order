@@ -11,6 +11,7 @@
   padding: 28px 20px 40px;
   color: #0f172a;
   font-family: "Inter", system-ui, -apple-system, sans-serif;
+  
 }
 
 .admin-dashboard h1,
@@ -30,7 +31,7 @@
   font-size: 13px;
 }
 
-.eyebrow {
+.eyebrow-1 {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -45,7 +46,7 @@
   letter-spacing: 0.08em;
 }
 
-.eyebrow.soft {
+.eyebrow-1.soft {
   color: #475569;
   background: #f1f5f9;
   border-color: #e2e8f0;
@@ -237,7 +238,7 @@
   min-width: 320px;
 }
 
-.stat-card {
+.stat-card-1 {
   background: #111827;
   color: #e2e8f0;
   border-radius: 14px;
@@ -255,7 +256,7 @@
   text-transform: uppercase;
 }
 
-.stat-card strong {
+.stat-card-1 strong {
   font-size: 24px;
 }
 
@@ -747,9 +748,54 @@
   flex-wrap: wrap;
 }
 
+@media (max-width: 640px) {
+  .admin-dashboard {
+    padding: 18px 14px 32px;
+  }
+
+  .admin-dashboard input:focus,
+  .admin-dashboard textarea:focus {
+    border-color: #22c55e;
+    box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.15);
+    font-size: 16px;
+    outline: none;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr;
+    min-width: auto;
+    width: 100%;
+  }
+
+  .stat-card-1 {
+    padding: 10px 12px;
+    gap: 6px;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .stat-card-1 strong {
+    font-size: 20px;
+  }
+
+  .waiter-card {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 12px 14px;
+  }
+
+  .waiter-card .danger-btn {
+    width: 100%;
+    display: inline-flex;
+    justify-content: center;
+  }
+}
+
 @media (max-width: 980px) {
   .admin-hero {
     flex-direction: column;
+    margin-bottom: 10px;
   }
 
   .stats-grid {

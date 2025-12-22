@@ -1,5 +1,5 @@
 .app-header {
-  --header-bg: linear-gradient(120deg, rgba(108, 240, 194, 0.08), rgba(92, 219, 255, 0.08)),
+  --header-bg: linear-gradient(120deg, rgb(108, 240, 194), rgb(92, 220, 255)),
     rgba(6, 11, 27, 0.85);
   --header-border: rgba(255, 255, 255, 0.08);
   --header-text: #e8edfa;

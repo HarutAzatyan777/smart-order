@@ -17,6 +17,7 @@ export default function Header() {
   const navId = "primary-navigation";
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsMenuOpen(false);
   }, [pathname]);
 
@@ -76,9 +77,9 @@ export default function Header() {
             <Link to="/waiter/create" className="action-btn">
               Create order
             </Link>
-            <Link to="/admin/login" className="action-btn ghost">
+            {/* <Link to="/admin/login" className="action-btn ghost">
               Admin login
-            </Link>
+            </Link> */}
           </div>
         </div>
       </div>

@@ -427,22 +427,51 @@
 }
 
 .menu-v2__card {
-  background: linear-gradient(145deg, #0f172a, #0b1224);
+  position: relative;
+  isolation: isolate;
   color: #e5edf7;
   border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   box-shadow: 0 12px 26px rgba(15, 23, 42, 0.32);
   overflow: hidden;
-  display: grid;
-  gap: 10px;
+  min-height: 280px;
+  aspect-ratio: 4 / 5;
+  display: flex;
+  align-items: flex-end;
+  background: #0b1224;
+}
+
+.menu-v2__card.no-image {
+  min-height: 220px;
+  aspect-ratio: 3 / 4;
+  background: linear-gradient(145deg, #0f172a, #0b1224);
+}
+
+.menu-v2__card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: linear-gradient(180deg, rgba(6, 12, 24, 0.18) 0%, rgba(6, 12, 24, 0.4) 40%, rgba(6, 12, 24, 0.82) 100%);
+  pointer-events: none;
+}
+
+.menu-v2__card.no-image::after {
+  display: none;
 }
 
 .menu-v2__card-image {
-  width: 100%;
-  aspect-ratio: 4 / 3;
-  max-height: 150px;
-  background: rgba(255, 255, 255, 0.04);
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 30% 20%, rgba(56, 189, 248, 0.16), transparent 35%),
+    radial-gradient(circle at 80% 20%, rgba(14, 165, 233, 0.12), transparent 40%),
+    #0f172a;
   overflow: hidden;
+}
+
+.menu-v2__card.no-image .menu-v2__card-image {
+  display: none;
 }
 
 .menu-v2__card-image img {
@@ -450,12 +479,31 @@
   height: 100%;
   object-fit: cover;
   display: block;
+  transform: scale(1.01);
+  filter: saturate(1.02);
+  transition: transform 0.35s ease, filter 0.35s ease, opacity 0.25s ease;
+}
+
+.menu-v2__card:hover .menu-v2__card-image img {
+  transform: scale(1.05);
+  filter: saturate(1.12);
+}
+
+.menu-v2__card-image.is-placeholder {
+  background: linear-gradient(145deg, #0f172a, #0b1224);
 }
 
 .menu-v2__card-body {
-  padding: 12px 12px 14px;
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  padding: 14px 14px 16px;
   display: grid;
   gap: 8px;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border-top: none;
 }
 
 .menu-v2__card-top {

@@ -357,57 +357,74 @@ export default function MenuPage() {
                 <span className="menu-v2__chip subtle">{items.length} items</span>
               </div>
               <div className="menu-v2__grid">
-                {items.map((item, idx) => (
-                  <article
-                    key={item.id || `${item.name}-${idx}`}
-                    className="menu-v2__card"
-                  >
-                    {item.imageUrl ? (
-                      <div className="menu-v2__card-image">
-                        <img
-                          src={item.imageUrl}
-                          alt={item.name || "Menu item"}
-                          loading="lazy"
-                          onError={(e) => {
-                            if (e.currentTarget.src.includes("placeholder-food.jpg")) return;
-                            e.currentTarget.src = "/placeholder-food.jpg";
-                          }}
-                        />
-                      </div>
-                    ) : null}
-                    <div className="menu-v2__card-body">
-                      <div className="menu-v2__card-top">
-                        <h3>{item.name}</h3>
-                        <span className="menu-v2__price">{formatPrice(item.price)}</span>
-                      </div>
-                      {item.description ? (
-                        <p className="menu-v2__text">{item.description}</p>
-                      ) : (
-                        <p className="menu-v2__text muted">No description provided.</p>
-                      )}
-                      <div className="menu-v2__meta">
-                        {item.prepTime ? (
-                          <span className="menu-v2__pill">Prep: {item.prepTime}</span>
-                        ) : null}
-                        {item.spiceLevel ? (
-                          <span className="menu-v2__pill warm">Spice: {item.spiceLevel}</span>
-                        ) : null}
-                        {item.allergens ? (
-                          <span className="menu-v2__pill alert">Allergens: {item.allergens}</span>
+                {items.map((item, idx) => {
+                  const hasImage = Boolean(item.imageUrl);
+                  return (
+                    <article
+                      key={item.id || `${item.name}-${idx}`}
+                      className={["menu-v2__card", hasImage ? "has-image" : "no-image"].join(" ")}
+                    >
+                      <div
+                        className={[
+                          "menu-v2__card-image",
+                          hasImage ? "" : "is-placeholder"
+                        ]
+                          .filter(Boolean)
+                          .join(" ")}
+                      >
+                        {hasImage ? (
+                          <img
+                            src={item.imageUrl}
+                            alt={item.name || "Menu item"}
+                            loading="lazy"
+                            onError={(e) => {
+                              const imgEl = e.currentTarget;
+                              if (imgEl.dataset.fallback === "true" || imgEl.src.includes("placeholder-food.jpg")) {
+                                const wrapper = imgEl.closest(".menu-v2__card-image");
+                                if (wrapper) wrapper.classList.add("is-placeholder");
+                                imgEl.style.display = "none";
+                                return;
+                              }
+                              imgEl.dataset.fallback = "true";
+                              imgEl.src = "/placeholder-food.jpg";
+                            }}
+                          />
                         ) : null}
                       </div>
-                      <div className="menu-v2__actions">
-                        <button
-                          className="menu-v2__btn primary small"
-                          type="button"
-                          onClick={() => addToOrder(item)}
-                        >
-                          Order
-                        </button>
+                      <div className="menu-v2__card-body">
+                        <div className="menu-v2__card-top">
+                          <h3>{item.name}</h3>
+                          <span className="menu-v2__price">{formatPrice(item.price)}</span>
+                        </div>
+                        {item.description ? (
+                          <p className="menu-v2__text">{item.description}</p>
+                        ) : (
+                          <p className="menu-v2__text muted">No description provided.</p>
+                        )}
+                        <div className="menu-v2__meta">
+                          {item.prepTime ? (
+                            <span className="menu-v2__pill">Prep: {item.prepTime}</span>
+                          ) : null}
+                          {item.spiceLevel ? (
+                            <span className="menu-v2__pill warm">Spice: {item.spiceLevel}</span>
+                          ) : null}
+                          {item.allergens ? (
+                            <span className="menu-v2__pill alert">Allergens: {item.allergens}</span>
+                          ) : null}
+                        </div>
+                        <div className="menu-v2__actions">
+                          <button
+                            className="menu-v2__btn primary small"
+                            type="button"
+                            onClick={() => addToOrder(item)}
+                          >
+                            Order
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  </article>
-                ))}
+                    </article>
+                  );
+                })}
               </div>
             </section>
           ))

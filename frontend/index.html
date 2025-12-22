@@ -2,12 +2,95 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Smart Order</title>
+    <meta name="color-scheme" content="dark light" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta
+      name="format-detection"
+      content="telephone=no, date=no, address=no, email=no"
+    />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <title>
+      Smart Order | Restaurant ticketing, kitchen, and admin dashboards
+    </title>
+    <meta
+      name="description"
+      content="Smart Order keeps your floor, kitchen, and admin teams in sync with real-time tickets, menu controls, and shift reporting."
+    />
+    <meta
+      name="keywords"
+      content="restaurant order system,kitchen display system,waiter app,table management,shift reporting,menu management"
+    />
+    <meta name="robots" content="index,follow" />
+    <meta name="author" content="Smart Order" />
+    <meta name="application-name" content="Smart Order" />
+    <meta name="theme-color" content="#0b1426" />
+    <meta name="msapplication-TileColor" content="#0b1426" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="preload" as="image" href="/smart-order.png" />
+    <link rel="canonical" href="/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Smart Order" />
+    <meta property="og:locale" content="en_US" />
+    <meta
+      property="og:title"
+      content="Smart Order | Restaurant ticketing, kitchen, and admin dashboards"
+    />
+    <meta
+      property="og:description"
+      content="Smart Order keeps your floor, kitchen, and admin teams in sync with real-time tickets, menu controls, and shift reporting."
+    />
+    <meta id="og-url" property="og:url" content="/" />
+    <meta property="og:image" content="/smart-order.png" />
+    <meta property="og:image:alt" content="Smart Order dashboards preview" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta
+      name="twitter:title"
+      content="Smart Order | Restaurant ticketing, kitchen, and admin dashboards"
+    />
+    <meta
+      name="twitter:description"
+      content="Smart Order keeps your floor, kitchen, and admin teams in sync with real-time tickets, menu controls, and shift reporting."
+    />
+    <meta name="twitter:image" content="/smart-order.png" />
+    <meta name="twitter:image:alt" content="Smart Order dashboards preview" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Smart Order" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "Smart Order",
+        "applicationCategory": "BusinessApplication",
+        "operatingSystem": "Web",
+        "description": "Real-time restaurant ticketing with kitchen and admin dashboards.",
+        "url": "/",
+        "image": "/smart-order.png",
+        "creator": { "@type": "Organization", "name": "Smart Order" }
+      }
+    </script>
+    <script>
+      (function setCanonicalAndOgUrl() {
+        var canonical = document.querySelector('link[rel="canonical"]');
+        var ogUrl = document.getElementById("og-url");
+        var url = window.location.href.split("#")[0];
+        if (canonical) {
+          canonical.setAttribute("href", url);
+        }
+        if (ogUrl) {
+          ogUrl.setAttribute("content", url);
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
+    <noscript>
+      Smart Order needs JavaScript enabled for live ticket updates and dashboards.
+    </noscript>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

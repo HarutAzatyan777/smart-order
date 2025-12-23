@@ -3,7 +3,7 @@ import { apiUrl } from "../config/api";
 import { db } from "../firebase/firestore";
 import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
 
-export default function useMenu() {
+export default function useMenu(language = "en") {
   const [menu, setMenu] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -18,7 +18,7 @@ export default function useMenu() {
     setError("");
 
     try {
-      const res = await fetch(apiUrl("menu"));
+      const res = await fetch(apiUrl("menu") + `?lang=${encodeURIComponent(language)}`);
 
       if (!res.ok) {
         throw new Error(`Menu request failed (${res.status})`);
@@ -35,7 +35,7 @@ export default function useMenu() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [language]);
 
   useEffect(() => {
     setError("");
@@ -76,7 +76,7 @@ export default function useMenu() {
     );
 
     return () => unsubscribe();
-  }, [loadMenu, disableListener]);
+  }, [loadMenu, disableListener, language]);
 
   return { menu, loading, error, refresh: loadMenu };
 }

@@ -1,4 +1,5 @@
-  import { forwardRef, useRef, useState } from "react";
+import { forwardRef, useEffect, useMemo, useRef, useState } from "react";
+import { SUPPORTED_LANGUAGES, getMenuField, localizeMenuItem } from "../../../utils/menuI18n";
 
 const MenuPanel = forwardRef(function MenuPanel({
   menuSearch,
@@ -12,6 +13,12 @@ const MenuPanel = forwardRef(function MenuPanel({
   setMenuCategory,
   menuDescription,
   setMenuDescription,
+  menuNameHy,
+  setMenuNameHy,
+  menuCategoryHy,
+  setMenuCategoryHy,
+  menuDescriptionHy,
+  setMenuDescriptionHy,
   addMenuItem,
   imageUploadStatus,
   categories,
@@ -27,6 +34,12 @@ const MenuPanel = forwardRef(function MenuPanel({
   setEditMenuCategory,
   editMenuDescription,
   setEditMenuDescription,
+  editMenuNameHy,
+  setEditMenuNameHy,
+  editMenuCategoryHy,
+  setEditMenuCategoryHy,
+  editMenuDescriptionHy,
+  setEditMenuDescriptionHy,
   saveMenuItem,
   toggleMenuAvailability,
   deleteMenuItem,
@@ -47,14 +60,40 @@ const MenuPanel = forwardRef(function MenuPanel({
   maxCategoryList = Infinity,
   onViewAllClick,
   menuFilter,
-  setMenuFilter
+  setMenuFilter,
+  onMoveCategory,
+  onRenameCategory,
+  categoryAction,
+  enableCategoryEditor = false,
+  onDeleteAllMenu,
+  bulkDeleting = false,
+  language = "en",
+  onLanguageChange
 }, ref) {
   const visibleCategories =
     maxCategoryList === Infinity ? categories : categories.slice(0, maxCategoryList);
+  const localizedMenu = useMemo(
+    () =>
+      filteredMenu.map((item) => ({
+        item,
+        display: localizeMenuItem(item, language)
+      })),
+    [filteredMenu, language]
+  );
+  const categoryLabels = useMemo(() => {
+    const map = {};
+    localizedMenu.forEach(({ item, display }) => {
+      const key = item.category || "Uncategorized";
+      if (!map[key]) map[key] = display.displayCategory || key;
+    });
+    return map;
+  }, [localizedMenu]);
   const fileInputRef = useRef(null);
   const menuImageInputRef = useRef(null);
   const editImageInputRef = useRef(null);
   const [openCategories, setOpenCategories] = useState({});
+  const [selectedCategory, setSelectedCategory] = useState("");
+  const [categoryDraft, setCategoryDraft] = useState("");
   const handleFileChange = async (e) => {
     const file = e.target.files?.[0];
     await importMenuFile(file);
@@ -72,6 +111,25 @@ const MenuPanel = forwardRef(function MenuPanel({
     });
   };
 
+  useEffect(() => {
+    if (!categories.length) {
+      setSelectedCategory("");
+      setCategoryDraft("");
+      return;
+    }
+    if (!selectedCategory || !categories.includes(selectedCategory)) {
+      setSelectedCategory(categories[0]);
+      setCategoryDraft(categories[0] || "");
+    }
+  }, [categories, selectedCategory]);
+
+  const categoryBusy = Boolean(categoryAction);
+
+  const handleCategoryRename = () => {
+    if (!selectedCategory || !categoryDraft.trim()) return;
+    onRenameCategory?.(selectedCategory, categoryDraft);
+  };
+
   return (
     <section className="admin-panel" ref={ref}>
       <div className="panel-heading">
@@ -81,6 +139,18 @@ const MenuPanel = forwardRef(function MenuPanel({
           <p className="muted">Create, edit, and toggle availability by category.</p>
         </div>
         <div className="panel-actions">
+          <div className="lang-switch">
+            {SUPPORTED_LANGUAGES.map((lang) => (
+              <button
+                key={lang.code}
+                type="button"
+                className={`ghost-btn small ${language === lang.code ? "active" : ""}`}
+                onClick={() => onLanguageChange?.(lang.code)}
+              >
+                {lang.label}
+              </button>
+            ))}
+          </div>
           <input
             className="admin-input compact"
             type="search"
@@ -100,6 +170,13 @@ const MenuPanel = forwardRef(function MenuPanel({
           <button className="ghost-btn" onClick={onReload} disabled={loadingMenu}>
             {loadingMenu ? "Loading..." : "Reload"}
           </button>
+          <button
+            className="danger-btn"
+            onClick={onDeleteAllMenu}
+            disabled={loadingMenu || bulkDeleting}
+          >
+            {bulkDeleting ? "Deleting all..." : "Delete all"}
+          </button>
         </div>
       </div>
 
@@ -107,7 +184,7 @@ const MenuPanel = forwardRef(function MenuPanel({
         <div className="import-text">
           <p className="eyebrow soft">Bulk import</p>
           <p className="muted small">
-            Upload .xlsx, .csv, or .docx with columns: name, price, category, description, available.
+            Upload .xlsx, .csv, or .docx with columns: name, price, category, description, available, name_hy, category_hy, description_hy.
           </p>
         </div>
         <div className="import-actions">
@@ -147,6 +224,98 @@ const MenuPanel = forwardRef(function MenuPanel({
         ) : null}
       </div>
 
+      {enableCategoryEditor ? (
+        <div className="category-manager">
+          <div className="category-manager-header">
+            <p className="eyebrow soft">Category controls</p>
+            <p className="muted small">
+              Reorder how categories appear and rename them without editing every dish.
+            </p>
+          </div>
+          {categories.length === 0 ? (
+            <p className="muted small">Add a menu item to create your first category.</p>
+          ) : (
+            <>
+              <div className="category-manager-list">
+                {categories.map((cat, idx) => (
+                  <div key={cat} className="category-manager-row">
+                    <span className="category-label">{categoryLabels[cat] || cat}</span>
+                    <div className="category-manager-actions">
+                      <button
+                        type="button"
+                        className="ghost-btn small"
+                        onClick={() => onMoveCategory?.(cat, -1)}
+                        disabled={!onMoveCategory || idx === 0 || categoryBusy}
+                      >
+                        Move up
+                      </button>
+                      <button
+                        type="button"
+                        className="ghost-btn small"
+                        onClick={() => onMoveCategory?.(cat, 1)}
+                        disabled={
+                          !onMoveCategory || idx === categories.length - 1 || categoryBusy
+                        }
+                      >
+                        Move down
+                      </button>
+                      <button
+                        type="button"
+                        className="ghost-btn small"
+                        onClick={() => {
+                          setSelectedCategory(cat);
+                          setCategoryDraft(cat);
+                        }}
+                        disabled={categoryBusy}
+                      >
+                        Edit
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="category-rename-row">
+                <select
+                  className="admin-input"
+                  value={selectedCategory}
+                  onChange={(e) => {
+                    setSelectedCategory(e.target.value);
+                    setCategoryDraft(e.target.value);
+                  }}
+                  disabled={!categories.length || categoryBusy}
+                >
+                  {categories.map((cat) => (
+                    <option key={cat} value={cat}>
+                      {categoryLabels[cat] || cat}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  className="admin-input"
+                  placeholder="New category name"
+                  value={categoryDraft}
+                  onChange={(e) => setCategoryDraft(e.target.value)}
+                  disabled={!selectedCategory || categoryBusy}
+                />
+                <button
+                  type="button"
+                  className="primary-btn"
+                  onClick={handleCategoryRename}
+                  disabled={
+                    !selectedCategory ||
+                    !categoryDraft.trim() ||
+                    categoryDraft === selectedCategory ||
+                    categoryBusy
+                  }
+                >
+                  {categoryBusy ? "Saving..." : "Save category name"}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      ) : null}
+
       <div className="input-grid">
         <div className="field">
           <label>Item name</label>
@@ -176,6 +345,24 @@ const MenuPanel = forwardRef(function MenuPanel({
             onChange={(e) => setMenuCategory(e.target.value)}
           />
         </div>
+        <div className="field">
+          <label>Item name (Armenian)</label>
+          <input
+            className="admin-input"
+            placeholder="Տարածված անուն"
+            value={menuNameHy}
+            onChange={(e) => setMenuNameHy(e.target.value)}
+          />
+        </div>
+        <div className="field">
+          <label>Category (Armenian)</label>
+          <input
+            className="admin-input"
+            placeholder="Խմիչքներ, Պիցցա..."
+            value={menuCategoryHy}
+            onChange={(e) => setMenuCategoryHy(e.target.value)}
+          />
+        </div>
         <div className="field full">
           <label>Description</label>
           <textarea
@@ -184,6 +371,16 @@ const MenuPanel = forwardRef(function MenuPanel({
             placeholder="Add a short description"
             value={menuDescription}
             onChange={(e) => setMenuDescription(e.target.value)}
+          />
+        </div>
+        <div className="field full">
+          <label>Description (Armenian)</label>
+          <textarea
+            className="admin-textarea"
+            rows="2"
+            placeholder="Կարճ նկարագրություն"
+            value={menuDescriptionHy}
+            onChange={(e) => setMenuDescriptionHy(e.target.value)}
           />
         </div>
         <div className="field full image-field">
@@ -240,15 +437,15 @@ const MenuPanel = forwardRef(function MenuPanel({
         <div className="empty-state">No menu items yet. Add your first dish.</div>
       ) : (
         visibleCategories.map((cat, idx) => {
-          const itemsForCategory = filteredMenu.filter(
-            (m) => (m.category || "Uncategorized") === cat
+          const itemsForCategory = localizedMenu.filter(
+            ({ item }) => (item.category || "Uncategorized") === cat
           );
           if (!itemsForCategory.length) return null;
           const categoryOpen = isCategoryOpen(cat, idx);
           return (
             <div key={cat} className="category-block" data-open={categoryOpen ? "true" : "false"}>
               <div className="category-header">
-                <h3>{cat}</h3>
+                <h3>{categoryLabels[cat] || cat}</h3>
                 <div className="category-header-meta">
                   <span className="pill subtle">{itemsForCategory.length} items</span>
                   <button
@@ -261,7 +458,7 @@ const MenuPanel = forwardRef(function MenuPanel({
               </div>
               {categoryOpen ? (
                 <div className="menu-grid">
-                  {itemsForCategory.map((item) => (
+                  {itemsForCategory.map(({ item, display }) => (
                     <div key={item.id} className="admin-menu-card">
                       {editingMenuId === item.id ? (
                         <div className="edit-grid">
@@ -284,11 +481,29 @@ const MenuPanel = forwardRef(function MenuPanel({
                             onChange={(e) => setEditMenuCategory(e.target.value)}
                             placeholder="Category"
                           />
+                          <input
+                            className="admin-input"
+                            value={editMenuNameHy}
+                            onChange={(e) => setEditMenuNameHy(e.target.value)}
+                            placeholder="Item name (Armenian)"
+                          />
+                          <input
+                            className="admin-input"
+                            value={editMenuCategoryHy}
+                            onChange={(e) => setEditMenuCategoryHy(e.target.value)}
+                            placeholder="Category (Armenian)"
+                          />
                           <textarea
                             className="admin-textarea"
                             value={editMenuDescription}
                             onChange={(e) => setEditMenuDescription(e.target.value)}
                             placeholder="Description"
+                          />
+                          <textarea
+                            className="admin-textarea"
+                            value={editMenuDescriptionHy}
+                            onChange={(e) => setEditMenuDescriptionHy(e.target.value)}
+                            placeholder="Description (Armenian)"
                           />
                           <div className="field full image-field">
                             <label>Item photo</label>
@@ -365,8 +580,10 @@ const MenuPanel = forwardRef(function MenuPanel({
                           ) : null}
                           <div className="menu-card-top">
                             <div>
-                              <p className="muted small">{item.category || "Uncategorized"}</p>
-                              <h4>{item.name}</h4>
+                              <p className="muted small">
+                                {display.displayCategory || item.category || "Uncategorized"}
+                              </p>
+                              <h4>{display.displayName || item.name}</h4>
                               <p className="price">{formatCurrency(item.price)}</p>
                             </div>
                             <span
@@ -375,7 +592,9 @@ const MenuPanel = forwardRef(function MenuPanel({
                               {item.available === false ? "Unavailable" : "Available"}
                             </span>
                           </div>
-                          <p className="muted">{item.description || "No description provided."}</p>
+                          <p className="muted">
+                            {display.displayDescription || item.description || "No description provided."}
+                          </p>
                           <div className="menu-actions">
                             <button className="ghost-btn" onClick={() => startEditMenuItem(item)}>
                               Edit

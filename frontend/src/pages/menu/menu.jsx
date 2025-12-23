@@ -1,9 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import useMenu from "../../hooks/useMenu";
+import useMenuLanguage from "../../hooks/useMenuLanguage";
+import {
+  SUPPORTED_LANGUAGES,
+  buildCategoryList,
+  formatCurrencyLocalized,
+  localizeMenuItem
+} from "../../utils/menuI18n";
 import "./menu.css";
 
 export default function MenuPage() {
-  const { menu, loading, error, refresh } = useMenu();
+  const { language, setLanguage } = useMenuLanguage();
+  const { menu, loading, error, refresh } = useMenu(language);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
   const [sortBy, setSortBy] = useState("featured");
@@ -13,12 +21,18 @@ export default function MenuPage() {
   const [showFloatingFilters, setShowFloatingFilters] = useState(false);
   const sectionRefs = useRef([]);
 
-  const categories = useMemo(() => {
-    const set = new Set(menu.map((item) => item.category || "Uncategorized"));
-    return Array.from(set).sort((a, b) => a.localeCompare(b));
-  }, [menu]);
+  const localizedMenu = useMemo(
+    () => menu.map((item) => localizeMenuItem(item, language)),
+    [menu, language]
+  );
 
-  const topCategories = useMemo(() => categories.slice(0, 6), [categories]);
+  const categoryOptions = useMemo(() => {
+    return buildCategoryList(localizedMenu, language).sort((a, b) =>
+      a.label.localeCompare(b.label)
+    );
+  }, [localizedMenu, language]);
+
+  const topCategories = useMemo(() => categoryOptions.slice(0, 6), [categoryOptions]);
 
   const filteredMenu = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -26,9 +40,9 @@ export default function MenuPage() {
     const matchesSearch = (item) => {
       if (!term) return true;
       const haystack = [
-        item.name,
-        item.description,
-        item.category,
+        item.displayName,
+        item.displayDescription,
+        item.displayCategory,
         item.notes
       ]
         .filter(Boolean)
@@ -37,7 +51,7 @@ export default function MenuPage() {
       return haystack.includes(term);
     };
 
-    const base = menu.filter((item) => {
+    const base = localizedMenu.filter((item) => {
       const itemCategory = item.category || "Uncategorized";
       if (item.available === false) return false;
       if (category !== "all" && itemCategory !== category) return false;
@@ -54,15 +68,15 @@ export default function MenuPage() {
         case "price-desc":
           return priceB - priceA;
         case "alpha":
-          return (a.name || "").localeCompare(b.name || "");
+          return (a.displayName || "").localeCompare(b.displayName || "");
         case "featured":
         default:
-          return (a.category || "").localeCompare(b.category || "");
+          return (a.displayCategory || "").localeCompare(b.displayCategory || "");
       }
     });
 
     return sorted;
-  }, [menu, category, search, sortBy]);
+  }, [localizedMenu, category, search, sortBy]);
 
   const groupedMenu = useMemo(() => {
     const map = new Map();
@@ -74,8 +88,7 @@ export default function MenuPage() {
     return Array.from(map.entries());
   }, [filteredMenu]);
 
-  const formatPrice = (value) =>
-    `${Number(value || 0).toLocaleString("en-US")} AMD`;
+  const formatPrice = (value) => formatCurrencyLocalized(value, language);
 
   const resetFilters = () => {
     setSearch("");
@@ -105,6 +118,9 @@ export default function MenuPage() {
 
   const availableCount = menu.filter((m) => m.available !== false).length;
   const skeletonCards = useMemo(() => Array.from({ length: 6 }), []);
+
+  const getCategoryLabel = (key) =>
+    categoryOptions.find((item) => item.key === key)?.label || key;
 
   useEffect(() => {
     const handleScroll = () => {
@@ -151,42 +167,54 @@ export default function MenuPage() {
           <div>
             <p className="menu-v2__eyebrow">Menu</p>
             <h1 className="menu-v2__title">Find your next favorite</h1>
-            <p className="menu-v2__lede">
-              Browse the full list of dishes, filtered by category and crafted fresh.
-            </p>
-            <div className="menu-v2__chips">
-              <span className="menu-v2__chip live">{menu.length} items</span>
-              <span className="menu-v2__chip">{categories.length} categories</span>
-              <span className="menu-v2__chip">{availableCount} available</span>
-            </div>
-            {topCategories.length ? (
-              <div className="menu-v2__anchors" aria-label="Quick categories">
-                <button
-                  type="button"
-                  className={`menu-v2__anchor ${category === "all" ? "is-active" : ""}`}
-                  onClick={() => setCategory("all")}
-                >
-                  All
-                </button>
+              <p className="menu-v2__lede">
+                Browse the full list of dishes, filtered by category and crafted fresh.
+              </p>
+              <div className="menu-v2__chips">
+                <span className="menu-v2__chip live">{menu.length} items</span>
+                <span className="menu-v2__chip">{categoryOptions.length} categories</span>
+                <span className="menu-v2__chip">{availableCount} available</span>
+              </div>
+              {topCategories.length ? (
+                <div className="menu-v2__anchors" aria-label="Quick categories">
+                  <button
+                    type="button"
+                    className={`menu-v2__anchor ${category === "all" ? "is-active" : ""}`}
+                    onClick={() => setCategory("all")}
+                  >
+                    All
+                  </button>
                 {topCategories.map((cat) => (
                   <button
-                    key={cat}
+                    key={cat.key}
                     type="button"
-                    className={`menu-v2__anchor ${category === cat ? "is-active" : ""}`}
-                    onClick={() => setCategory(cat)}
+                    className={`menu-v2__anchor ${category === cat.key ? "is-active" : ""}`}
+                    onClick={() => setCategory(cat.key)}
                   >
-                    {cat}
+                    {cat.label}
+                  </button>
+                ))}
+                </div>
+              ) : null}
+            </div>
+            <div className="menu-v2__hero-actions">
+              <div className="menu-v2__lang-switch" aria-label="Language">
+                {SUPPORTED_LANGUAGES.map((lang) => (
+                  <button
+                    key={lang.code}
+                    type="button"
+                    className={`menu-v2__btn ghost small ${language === lang.code ? "is-active" : ""}`}
+                    onClick={() => setLanguage(lang.code)}
+                  >
+                    {lang.label}
                   </button>
                 ))}
               </div>
-            ) : null}
-          </div>
-          <div className="menu-v2__hero-actions">
-            <button className="menu-v2__btn ghost" type="button" onClick={resetFilters}>
-              Reset filters
-            </button>
-            <button
-              className="menu-v2__btn primary"
+              <button className="menu-v2__btn ghost" type="button" onClick={resetFilters}>
+                Reset filters
+              </button>
+              <button
+                className="menu-v2__btn primary"
               type="button"
               onClick={refresh}
               disabled={loading}
@@ -220,9 +248,9 @@ export default function MenuPage() {
               onChange={(e) => setCategory(e.target.value)}
             >
               <option value="all">All categories</option>
-              {categories.map((cat) => (
-                <option key={cat} value={cat}>
-                  {cat}
+              {categoryOptions.map((cat) => (
+                <option key={cat.key} value={cat.key}>
+                  {cat.label}
                 </option>
               ))}
             </select>
@@ -259,20 +287,20 @@ export default function MenuPage() {
                   />
                 </div>
                 <div className="menu-v2__control">
-                  <label htmlFor="menu-category-mobile">Category</label>
-                  <select
-                    id="menu-category-mobile"
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
-                  >
-                    <option value="all">All categories</option>
-                    {categories.map((cat) => (
-                      <option key={cat} value={cat}>
-                        {cat}
+                <label htmlFor="menu-category-mobile">Category</label>
+                <select
+                  id="menu-category-mobile"
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                >
+                  <option value="all">All categories</option>
+                    {categoryOptions.map((cat) => (
+                      <option key={cat.key} value={cat.key}>
+                        {cat.label}
                       </option>
                     ))}
-                  </select>
-                </div>
+                </select>
+              </div>
                 <div className="menu-v2__control">
                   <label htmlFor="menu-sort-mobile">Sort by</label>
                   <select
@@ -352,13 +380,15 @@ export default function MenuPage() {
               <div className="menu-v2__section-head">
                 <div>
                   <p className="menu-v2__eyebrow">Category</p>
-                  <h2>{cat}</h2>
+                  <h2>{getCategoryLabel(cat)}</h2>
                 </div>
                 <span className="menu-v2__chip subtle">{items.length} items</span>
               </div>
               <div className="menu-v2__grid">
                 {items.map((item, idx) => {
                   const hasImage = Boolean(item.imageUrl);
+                  const displayName = item.displayName || item.name;
+                  const displayDescription = item.displayDescription || item.description;
                   return (
                     <article
                       key={item.id || `${item.name}-${idx}`}
@@ -371,16 +401,16 @@ export default function MenuPage() {
                         ]
                           .filter(Boolean)
                           .join(" ")}
-                      >
-                        {hasImage ? (
-                          <img
-                            src={item.imageUrl}
-                            alt={item.name || "Menu item"}
-                            loading="lazy"
-                            onError={(e) => {
-                              const imgEl = e.currentTarget;
-                              if (imgEl.dataset.fallback === "true" || imgEl.src.includes("placeholder-food.jpg")) {
-                                const wrapper = imgEl.closest(".menu-v2__card-image");
+                          >
+                            {hasImage ? (
+                              <img
+                                src={item.imageUrl}
+                                alt={displayName || "Menu item"}
+                                loading="lazy"
+                                onError={(e) => {
+                                  const imgEl = e.currentTarget;
+                                  if (imgEl.dataset.fallback === "true" || imgEl.src.includes("placeholder-food.jpg")) {
+                                    const wrapper = imgEl.closest(".menu-v2__card-image");
                                 if (wrapper) wrapper.classList.add("is-placeholder");
                                 imgEl.style.display = "none";
                                 return;
@@ -393,11 +423,11 @@ export default function MenuPage() {
                       </div>
                       <div className="menu-v2__card-body">
                         <div className="menu-v2__card-top">
-                          <h3>{item.name}</h3>
+                          <h3>{displayName}</h3>
                           <span className="menu-v2__price">{formatPrice(item.price)}</span>
                         </div>
-                        {item.description ? (
-                          <p className="menu-v2__text">{item.description}</p>
+                        {displayDescription ? (
+                          <p className="menu-v2__text">{displayDescription}</p>
                         ) : (
                           <p className="menu-v2__text muted">No description provided.</p>
                         )}
@@ -437,7 +467,7 @@ export default function MenuPage() {
             <div className="menu-v2__order-list" aria-live="polite">
               {visibleOrders.map((item) => (
                 <span key={item.__orderKey} className="menu-v2__pill">
-                  {item.name} × {item.qty}
+                  {(item.displayName || item.name || "Item")} × {item.qty}
                 </span>
               ))}
               {orderedItems.length > visibleOrders.length ? (

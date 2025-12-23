@@ -27,9 +27,12 @@ function normalizeMenuPayload(row) {
   };
 
   const name = String(pick(["name", "item", "title"])).trim();
+  const nameHy = String(pick(["namehy", "hyname", "armenianname", "amname"])).trim();
   const priceRaw = pick(["price", "cost", "amount"]);
   const category = String(pick(["category", "group", "section"])).trim();
+  const categoryHy = String(pick(["categoryhy", "hycategory", "armeniancategory", "amcategory"])).trim();
   const description = String(pick(["description", "details", "desc"]) || "").trim();
+  const descriptionHy = String(pick(["descriptionhy", "hydescription", "armeniandescription", "amdescription"]) || "").trim();
   const availableRaw = pick(["available", "instock", "availability"]);
 
   const priceNumber = parseFloat(String(priceRaw).replace(/[^0-9.,-]/g, "").replace(",", "."));
@@ -37,12 +40,43 @@ function normalizeMenuPayload(row) {
 
   if (!name || !category || !Number.isFinite(priceNumber)) return null;
 
+  const CATEGORY_KEY_MAP = {
+    pizza: ["pizza", "պիցցա"],
+    burgers: ["burgers", "բուրգերներ", "бургер"],
+    drinks: ["drinks", "խմիչքներ"],
+    desserts: ["desserts", "աղանդեր", "десерт"],
+    salad: ["salad", "սալատ", "салат"]
+  };
+
+  const normalizeCategory = (label) => {
+    const lower = String(label || "").trim().toLowerCase();
+    if (!lower) return "";
+    for (const [key, aliases] of Object.entries(CATEGORY_KEY_MAP)) {
+      if (aliases.includes(lower)) return key;
+    }
+    return lower.replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || lower;
+  };
+
+  const categoryKey = normalizeCategory(category || categoryHy);
+
   return {
     name,
     price: priceNumber,
-    category,
+    category: categoryKey || category,
     description,
-    available: available ?? true
+    available: available ?? true,
+    translations: {
+      en: {
+        name: name || categoryKey,
+        category: category || categoryKey,
+        description: description
+      },
+      hy: {
+        name: nameHy || name || categoryKey,
+        category: categoryHy || category || categoryKey,
+        description: descriptionHy || description || ""
+      }
+    }
   };
 }
 

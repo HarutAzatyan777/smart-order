@@ -6,6 +6,7 @@ import { uploadMenuImage } from "../../utils/uploadMenuImage";
 
 export function useAdminMenu({ token, setError }) {
   const MENU_API = apiUrl("admin/menu");
+  const CATEGORY_ORDER_KEY = "adminCategoryOrder";
 
   const [menu, setMenu] = useState([]);
 
@@ -14,6 +15,9 @@ export function useAdminMenu({ token, setError }) {
   const [menuPrice, setMenuPrice] = useState("");
   const [menuCategory, setMenuCategory] = useState("");
   const [menuDescription, setMenuDescription] = useState("");
+  const [menuNameHy, setMenuNameHy] = useState("");
+  const [menuCategoryHy, setMenuCategoryHy] = useState("");
+  const [menuDescriptionHy, setMenuDescriptionHy] = useState("");
   const [menuImageFile, setMenuImageFile] = useState(null);
   const [menuImagePreview, setMenuImagePreview] = useState("");
 
@@ -23,6 +27,9 @@ export function useAdminMenu({ token, setError }) {
   const [editMenuPrice, setEditMenuPrice] = useState("");
   const [editMenuCategory, setEditMenuCategory] = useState("");
   const [editMenuDescription, setEditMenuDescription] = useState("");
+  const [editMenuNameHy, setEditMenuNameHy] = useState("");
+  const [editMenuCategoryHy, setEditMenuCategoryHy] = useState("");
+  const [editMenuDescriptionHy, setEditMenuDescriptionHy] = useState("");
   const [editMenuImageFile, setEditMenuImageFile] = useState(null);
   const [editMenuImagePreview, setEditMenuImagePreview] = useState("");
   const [editMenuImageUrl, setEditMenuImageUrl] = useState("");
@@ -35,6 +42,9 @@ export function useAdminMenu({ token, setError }) {
   const [imageUploadStatus, setImageUploadStatus] = useState({ create: false, edit: false });
   const [menuActionId, setMenuActionId] = useState("");
   const [loadingMenu, setLoadingMenu] = useState(false);
+  const [categoryOrder, setCategoryOrder] = useState([]);
+  const [categoryAction, setCategoryAction] = useState("");
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   const clearError = () => setError?.("");
   const withAuth = (options = {}) => ({
@@ -65,6 +75,28 @@ export function useAdminMenu({ token, setError }) {
       if (prev) URL.revokeObjectURL(prev);
       return "";
     });
+  };
+
+  const buildTranslations = ({ name, category, description, hyName, hyCategory, hyDescription }) => {
+    const trimmedName = name?.trim() || "";
+    const trimmedCategory = category?.trim() || "";
+    const trimmedDescription = description?.trim() || "";
+    const trimmedHyName = hyName?.trim();
+    const trimmedHyCategory = hyCategory?.trim();
+    const trimmedHyDescription = hyDescription?.trim();
+
+    return {
+      en: {
+        name: trimmedName,
+        category: trimmedCategory,
+        description: trimmedDescription
+      },
+      hy: {
+        name: trimmedHyName || trimmedName,
+        category: trimmedHyCategory || trimmedCategory,
+        description: trimmedHyDescription || trimmedDescription
+      }
+    };
   };
 
   const handleEditMenuImageFileChange = (file) => {
@@ -198,6 +230,14 @@ export function useAdminMenu({ token, setError }) {
       category: menuCategory.trim(),
       description: menuDescription.trim(),
       available: true,
+      translations: buildTranslations({
+        name: menuName,
+        category: menuCategory,
+        description: menuDescription,
+        hyName: menuNameHy,
+        hyCategory: menuCategoryHy,
+        hyDescription: menuDescriptionHy
+      }),
       imageUrl: uploadedImageUrl || null
     };
 
@@ -218,6 +258,9 @@ export function useAdminMenu({ token, setError }) {
       setMenuPrice("");
       setMenuCategory("");
       setMenuDescription("");
+      setMenuNameHy("");
+      setMenuCategoryHy("");
+      setMenuDescriptionHy("");
       clearMenuImageSelection();
       loadMenu();
     } catch (err) {
@@ -229,11 +272,16 @@ export function useAdminMenu({ token, setError }) {
   };
 
   const startEditMenuItem = (item) => {
+    const en = item.translations?.en || {};
+    const hy = item.translations?.hy || {};
     setEditingMenuId(item.id);
-    setEditMenuName(item.name);
+    setEditMenuName(en.name || item.name);
     setEditMenuPrice(item.price);
-    setEditMenuCategory(item.category);
-    setEditMenuDescription(item.description || "");
+    setEditMenuCategory(en.category || item.category);
+    setEditMenuDescription(en.description || item.description || "");
+    setEditMenuNameHy(hy.name || item.name || "");
+    setEditMenuCategoryHy(hy.category || item.category || "");
+    setEditMenuDescriptionHy(hy.description || item.description || "");
     resetEditImagePreview();
     setEditMenuImageUrl(item.imageUrl || "");
     setEditMenuImageCleared(false);
@@ -245,6 +293,9 @@ export function useAdminMenu({ token, setError }) {
     setEditMenuPrice("");
     setEditMenuCategory("");
     setEditMenuDescription("");
+    setEditMenuNameHy("");
+    setEditMenuCategoryHy("");
+    setEditMenuDescriptionHy("");
     resetEditImagePreview();
     setEditMenuImageUrl("");
     setEditMenuImageCleared(false);
@@ -278,7 +329,15 @@ export function useAdminMenu({ token, setError }) {
       name: editMenuName.trim(),
       price: Number(editMenuPrice),
       category: editMenuCategory.trim(),
-      description: editMenuDescription.trim()
+      description: editMenuDescription.trim(),
+      translations: buildTranslations({
+        name: editMenuName,
+        category: editMenuCategory,
+        description: editMenuDescription,
+        hyName: editMenuNameHy,
+        hyCategory: editMenuCategoryHy,
+        hyDescription: editMenuDescriptionHy
+      })
     };
 
     if (uploadedImageUrl !== undefined) {
@@ -343,6 +402,29 @@ export function useAdminMenu({ token, setError }) {
     }
   };
 
+  const deleteAllMenu = async () => {
+    if (!menu.length) return;
+    if (!window.confirm("Delete ALL menu items? This cannot be undone.")) return;
+
+    try {
+      setBulkDeleting(true);
+      clearError();
+      for (const item of menu) {
+        await fetchJson(
+          `${MENU_API}/${item.id}`,
+          withAuth({ method: "DELETE" }),
+          "Could not delete menu item"
+        );
+      }
+      loadMenu();
+    } catch (err) {
+      console.error(err);
+      setError?.(err.message || "Could not delete all menu items");
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
   const filteredMenu = useMemo(() => {
     const term = menuSearch.trim().toLowerCase();
     const filteredByVisibility = menu.filter((item) => {
@@ -359,10 +441,128 @@ export function useAdminMenu({ token, setError }) {
     });
   }, [menu, menuSearch, menuFilter]);
 
-  const categories = useMemo(() => {
+  const allCategories = useMemo(() => {
+    const set = new Set(menu.map((m) => m.category || "Uncategorized"));
+    return Array.from(set).sort();
+  }, [menu]);
+
+  const filteredCategories = useMemo(() => {
     const set = new Set(filteredMenu.map((m) => m.category || "Uncategorized"));
     return Array.from(set).sort();
   }, [filteredMenu]);
+
+  useEffect(() => {
+    try {
+      const cached = localStorage.getItem(CATEGORY_ORDER_KEY);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed)) {
+          setCategoryOrder(parsed);
+        }
+      }
+    } catch (err) {
+      console.error("Could not read category order", err);
+    }
+  }, []);
+
+  useEffect(() => {
+    setCategoryOrder((prev) => {
+      const filtered = prev.filter((cat) => allCategories.includes(cat));
+      const missing = allCategories.filter((cat) => !filtered.includes(cat));
+      const next = [...filtered, ...missing];
+      const hasChanges =
+        next.length !== prev.length || next.some((cat, idx) => cat !== prev[idx]);
+      return hasChanges ? next : prev;
+    });
+  }, [allCategories]);
+
+  useEffect(() => {
+    if (!categoryOrder.length) return;
+    try {
+      localStorage.setItem(CATEGORY_ORDER_KEY, JSON.stringify(categoryOrder));
+    } catch (err) {
+      console.error("Could not persist category order", err);
+    }
+  }, [categoryOrder]);
+
+  const categories = useMemo(() => {
+    const baseOrder = categoryOrder.length ? categoryOrder : allCategories;
+    const orderedVisible = baseOrder.filter((cat) => filteredCategories.includes(cat));
+    const missing = filteredCategories.filter((cat) => !orderedVisible.includes(cat));
+    return [...orderedVisible, ...missing];
+  }, [categoryOrder, allCategories, filteredCategories]);
+
+  const moveCategory = (category, direction) => {
+    setCategoryOrder((prev) => {
+      const idx = prev.indexOf(category);
+      if (idx === -1) return prev;
+      const target = idx + direction;
+      if (target < 0 || target >= prev.length) return prev;
+      const next = [...prev];
+      next.splice(idx, 1);
+      next.splice(target, 0, category);
+      return next;
+    });
+  };
+
+  const renameCategory = async (fromName, toName) => {
+    const nextName = toName.trim();
+    if (!fromName || !nextName) {
+      setError?.("Category name cannot be empty");
+      return;
+    }
+    if (fromName === nextName) return;
+
+    const itemsToUpdate = menu.filter(
+      (item) => (item.category || "Uncategorized") === fromName
+    );
+
+    try {
+      setCategoryAction(fromName);
+      clearError();
+      for (const item of itemsToUpdate) {
+        const existingTranslations = item.translations || {};
+        const payloadTranslations = {
+          ...existingTranslations,
+          en: {
+            ...(existingTranslations.en || {}),
+            category: nextName
+          },
+          hy: {
+            ...(existingTranslations.hy || {}),
+            category: existingTranslations.hy?.category || nextName
+          }
+        };
+
+        await fetchJson(
+          `${MENU_API}/${item.id}`,
+          withAuth({
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ category: nextName, translations: payloadTranslations })
+          }),
+          "Could not rename category"
+        );
+      }
+
+      setCategoryOrder((prev) => {
+        const next = [];
+        prev.forEach((cat) => {
+          const value = cat === fromName ? nextName : cat;
+          if (!next.includes(value)) next.push(value);
+        });
+        return next;
+      });
+      if (menuCategory === fromName) setMenuCategory(nextName);
+      if (editMenuCategory === fromName) setEditMenuCategory(nextName);
+      loadMenu();
+    } catch (err) {
+      console.error(err);
+      setError?.(err.message || "Could not rename category");
+    } finally {
+      setCategoryAction("");
+    }
+  };
 
   useEffect(() => {
     return () => {
@@ -425,6 +625,23 @@ export function useAdminMenu({ token, setError }) {
     setMenuFilter,
     filteredMenu,
     categories,
-    loadingMenu
+    loadingMenu,
+    moveCategory,
+    renameCategory,
+    categoryAction,
+    deleteAllMenu,
+    bulkDeleting,
+    menuNameHy,
+    setMenuNameHy,
+    menuCategoryHy,
+    setMenuCategoryHy,
+    menuDescriptionHy,
+    setMenuDescriptionHy,
+    editMenuNameHy,
+    setEditMenuNameHy,
+    editMenuCategoryHy,
+    setEditMenuCategoryHy,
+    editMenuDescriptionHy,
+    setEditMenuDescriptionHy
   };
 }

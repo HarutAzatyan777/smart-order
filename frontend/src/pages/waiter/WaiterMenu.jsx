@@ -1,22 +1,37 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import useMenu from "../../hooks/useMenu";
+import useMenuLanguage from "../../hooks/useMenuLanguage";
+import {
+  SUPPORTED_LANGUAGES,
+  formatCurrencyLocalized,
+  localizeMenuItem
+} from "../../utils/menuI18n";
 import "./WaiterMenu.css";
 
 export default function WaiterMenu() {
-  const { menu, loading, error, refresh } = useMenu();
+  const { language, setLanguage } = useMenuLanguage();
+  const { menu, loading, error, refresh } = useMenu(language);
   const [search, setSearch] = useState("");
   const [cart, setCart] = useState([]);
 
+  const localizedMenu = useMemo(
+    () => menu.map((item) => localizeMenuItem(item, language)),
+    [menu, language]
+  );
+
   const filteredMenu = useMemo(() => {
     const term = search.trim().toLowerCase();
-    if (!term) return menu;
-    return menu.filter((item) => {
-      const name = item.name?.toLowerCase() || "";
-      const desc = item.description?.toLowerCase() || "";
-      return name.includes(term) || desc.includes(term);
+    if (!term) return localizedMenu;
+    return localizedMenu.filter((item) => {
+      const name = item.displayName?.toLowerCase() || item.name?.toLowerCase() || "";
+      const desc =
+        item.displayDescription?.toLowerCase() || item.description?.toLowerCase() || "";
+      const cat =
+        item.displayCategory?.toLowerCase() || item.category?.toLowerCase() || "";
+      return name.includes(term) || desc.includes(term) || cat.includes(term);
     });
-  }, [menu, search]);
+  }, [localizedMenu, search]);
 
   const addToCart = (item) => {
     setCart((prev) => {
@@ -44,8 +59,7 @@ export default function WaiterMenu() {
     0
   );
 
-  const formatPrice = (value) =>
-    `${Number(value || 0).toLocaleString("en-US")} AMD`;
+  const formatPrice = (value) => formatCurrencyLocalized(value, language);
 
   return (
     <div className="waiter-menu-page">
@@ -65,6 +79,18 @@ export default function WaiterMenu() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
+          <div className="language-toggle">
+            {SUPPORTED_LANGUAGES.map((lang) => (
+              <button
+                key={lang.code}
+                type="button"
+                className={`ghost-btn ${language === lang.code ? "is-active" : ""}`}
+                onClick={() => setLanguage(lang.code)}
+              >
+                {lang.label}
+              </button>
+            ))}
+          </div>
           <button className="ghost-btn" onClick={refresh}>
             Refresh
           </button>
@@ -100,12 +126,12 @@ export default function WaiterMenu() {
                 <article className="menu-card" key={item.id}>
                   <div>
                     <div className="menu-card-top">
-                      <h3>{item.name}</h3>
+                      <h3>{item.displayName || item.name}</h3>
                       <span className="price-tag">
                         {formatPrice(item.price)}
                       </span>
                     </div>
-                    <p className="muted">{item.description}</p>
+                    <p className="muted">{item.displayDescription || item.description}</p>
                   </div>
 
                   <div className="menu-actions">
@@ -139,7 +165,7 @@ export default function WaiterMenu() {
               {cart.map((item) => (
                 <div key={item.id} className="cart-row">
                   <div>
-                    <p className="cart-title">{item.name}</p>
+                    <p className="cart-title">{item.displayName || item.name}</p>
                     <p className="muted">{formatPrice(item.price)}</p>
                   </div>
                   <div className="cart-actions">

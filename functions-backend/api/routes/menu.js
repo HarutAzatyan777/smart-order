@@ -12,7 +12,7 @@ const { FieldValue } = require('firebase-admin/firestore');
 // ADD MENU ITEM
 router.post('/', async (req, res) => {
   try {
-    const { name, price, category, description, available, imageUrl } = req.body;
+    const { name, price, category, description, available, imageUrl, translations } = req.body;
 
     if (!name || !price || !category) {
       return res.status(400).send({
@@ -25,6 +25,7 @@ router.post('/', async (req, res) => {
       price,
       category,
       description: description || "",
+      translations: translations || null,
       imageUrl: imageUrl || null,
       available: available ?? true,
       createdAt: FieldValue.serverTimestamp(),
@@ -42,9 +43,29 @@ router.post('/', async (req, res) => {
   }
 });
 
+const localizeItem = (item, lang = "en") => {
+  const safeLang = ["en", "hy"].includes(String(lang).toLowerCase()) ? String(lang).toLowerCase() : "en";
+  const tx = item.translations || {};
+  const pickField = (field) => {
+    const fromLang = tx[safeLang]?.[field];
+    if (fromLang && String(fromLang).trim()) return String(fromLang).trim();
+    const fromEn = tx.en?.[field];
+    if (fromEn && String(fromEn).trim()) return String(fromEn).trim();
+    return item[field];
+  };
+
+  return {
+    ...item,
+    displayName: pickField("name"),
+    displayDescription: pickField("description"),
+    displayCategory: pickField("category")
+  };
+};
+
 // GET ALL MENU ITEMS
 router.get('/', async (req, res) => {
   try {
+    const { lang } = req.query;
     const { category, available } = req.query;
 
     let query = db.collection('menu');
@@ -56,10 +77,12 @@ router.get('/', async (req, res) => {
 
     const snapshot = await query.orderBy('createdAt', 'desc').get();
 
-    const items = snapshot.docs.map(doc => ({
+    const itemsRaw = snapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
     }));
+
+    const items = lang ? itemsRaw.map((item) => localizeItem(item, lang)) : itemsRaw;
 
     res.status(200).send(items);
 
@@ -72,6 +95,7 @@ router.get('/', async (req, res) => {
 // GROUPED BY CATEGORY
 router.get('/grouped', async (req, res) => {
   try {
+    const { lang } = req.query;
     const snapshot = await db.collection('menu')
       .orderBy('createdAt', 'desc')
       .get();
@@ -79,12 +103,13 @@ router.get('/grouped', async (req, res) => {
     const items = snapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
-    }));
+    })).map((item) => (lang ? localizeItem(item, lang) : item));
 
     const grouped = {};
     items.forEach(item => {
-      if (!grouped[item.category]) grouped[item.category] = [];
-      grouped[item.category].push(item);
+      const key = item.category || "Uncategorized";
+      if (!grouped[key]) grouped[key] = [];
+      grouped[key].push(item);
     });
 
     res.status(200).send(grouped);

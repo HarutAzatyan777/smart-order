@@ -96,7 +96,19 @@ export default function AdminDashboard() {
     setMenuFilter,
     filteredMenu,
     categories,
-    loadingMenu
+    loadingMenu,
+    menuNameHy,
+    setMenuNameHy,
+    menuCategoryHy,
+    setMenuCategoryHy,
+    menuDescriptionHy,
+    setMenuDescriptionHy,
+    editMenuNameHy,
+    setEditMenuNameHy,
+    editMenuCategoryHy,
+    setEditMenuCategoryHy,
+    editMenuDescriptionHy,
+    setEditMenuDescriptionHy
   } = useAdminMenu({ token, setError });
 
   const refreshAll = async () => {
@@ -423,6 +435,12 @@ export default function AdminDashboard() {
           setMenuCategory={setMenuCategory}
           menuDescription={menuDescription}
           setMenuDescription={setMenuDescription}
+          menuNameHy={menuNameHy}
+          setMenuNameHy={setMenuNameHy}
+          menuCategoryHy={menuCategoryHy}
+          setMenuCategoryHy={setMenuCategoryHy}
+          menuDescriptionHy={menuDescriptionHy}
+          setMenuDescriptionHy={setMenuDescriptionHy}
           addMenuItem={addMenuItem}
           imageUploadStatus={imageUploadStatus}
           menuImagePreview={menuImagePreview}
@@ -441,6 +459,12 @@ export default function AdminDashboard() {
           setEditMenuCategory={setEditMenuCategory}
           editMenuDescription={editMenuDescription}
           setEditMenuDescription={setEditMenuDescription}
+          editMenuNameHy={editMenuNameHy}
+          setEditMenuNameHy={setEditMenuNameHy}
+          editMenuCategoryHy={editMenuCategoryHy}
+          setEditMenuCategoryHy={setEditMenuCategoryHy}
+          editMenuDescriptionHy={editMenuDescriptionHy}
+          setEditMenuDescriptionHy={setEditMenuDescriptionHy}
           editMenuImagePreview={editMenuImagePreview}
           editMenuImageUrl={editMenuImageUrl}
           onEditMenuImageFileChange={handleEditMenuImageFileChange}

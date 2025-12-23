@@ -20,6 +20,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-wrap: wrap;
 }
 
 .menu-actions-bar input {
@@ -28,6 +29,18 @@
   padding: 10px 12px;
   background: #f8fafc;
   font-size: 14px;
+}
+
+.language-toggle {
+  display: inline-flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.language-toggle .ghost-btn.is-active {
+  background: #0ea5e9;
+  color: #fff;
+  border-color: #0284c7;
 }
 
 .menu-shell {

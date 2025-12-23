@@ -312,6 +312,18 @@
   justify-content: flex-end;
 }
 
+.lang-switch {
+  display: inline-flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.lang-switch .ghost-btn.small.active {
+  background: #0ea5e9;
+  color: #fff;
+  border-color: #0284c7;
+}
+
 .import-box {
   border: 1px dashed #d1d5db;
   background: #f8fafc;
@@ -530,6 +542,50 @@
 .category-toggle {
   padding: 6px 10px;
   font-size: 13px;
+}
+
+.category-manager {
+  border: 1px dashed #d1d5db;
+  background: #fff;
+  border-radius: 12px;
+  padding: 12px;
+  display: grid;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.category-manager-header {
+  display: grid;
+  gap: 4px;
+}
+
+.category-manager-list {
+  display: grid;
+  gap: 8px;
+}
+
+.category-manager-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 8px 10px;
+  background: #f8fafc;
+}
+
+.category-manager-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.category-rename-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px;
+  align-items: center;
 }
 
 .ghost-btn.small {

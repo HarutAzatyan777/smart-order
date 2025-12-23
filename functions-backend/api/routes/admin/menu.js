@@ -110,7 +110,7 @@ router.get('/', async (req, res) => {
 // ===========================
 router.post('/', async (req, res) => {
   try {
-    const { name, price, category, description, available, imageUrl } = req.body;
+    const { name, price, category, description, available, imageUrl, translations } = req.body;
 
     if (!name || !price || !category) {
       return res.status(400).send({ error: 'Missing name, price or category' });
@@ -123,6 +123,7 @@ router.post('/', async (req, res) => {
       description: description || '',
       imageUrl: imageUrl || null,
       available: available ?? true,
+      translations: translations || null,
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp()
     });

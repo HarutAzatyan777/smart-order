@@ -5,10 +5,12 @@ import { useNavigate } from "react-router-dom";
 import MenuPanel from "./components/MenuPanel";
 import { formatCurrency } from "./helpers";
 import { useAdminMenu } from "./useAdminMenu";
+import useMenuLanguage from "../../hooks/useMenuLanguage";
 
 export default function AdminMenu() {
   const navigate = useNavigate();
   const token = localStorage.getItem("adminToken");
+  const { language, setLanguage } = useMenuLanguage();
   const [error, setError] = useState("");
   const panelRef = useRef(null);
 
@@ -57,7 +59,24 @@ export default function AdminMenu() {
     setMenuFilter,
     filteredMenu,
     categories,
-    loadingMenu
+    loadingMenu,
+    moveCategory,
+    renameCategory,
+    categoryAction,
+    deleteAllMenu,
+    bulkDeleting,
+    menuNameHy,
+    setMenuNameHy,
+    menuCategoryHy,
+    setMenuCategoryHy,
+    menuDescriptionHy,
+    setMenuDescriptionHy,
+    editMenuNameHy,
+    setEditMenuNameHy,
+    editMenuCategoryHy,
+    setEditMenuCategoryHy,
+    editMenuDescriptionHy,
+    setEditMenuDescriptionHy
   } = useAdminMenu({ token, setError });
 
   useEffect(() => {
@@ -118,6 +137,12 @@ export default function AdminMenu() {
           setMenuDescription={setMenuDescription}
           addMenuItem={addMenuItem}
           imageUploadStatus={imageUploadStatus}
+          menuNameHy={menuNameHy}
+          setMenuNameHy={setMenuNameHy}
+          menuCategoryHy={menuCategoryHy}
+          setMenuCategoryHy={setMenuCategoryHy}
+          menuDescriptionHy={menuDescriptionHy}
+          setMenuDescriptionHy={setMenuDescriptionHy}
           menuImagePreview={menuImagePreview}
           onMenuImageFileChange={handleMenuImageFileChange}
           onMenuImageClear={clearMenuImageSelection}
@@ -134,6 +159,12 @@ export default function AdminMenu() {
           setEditMenuCategory={setEditMenuCategory}
           editMenuDescription={editMenuDescription}
           setEditMenuDescription={setEditMenuDescription}
+          editMenuNameHy={editMenuNameHy}
+          setEditMenuNameHy={setEditMenuNameHy}
+          editMenuCategoryHy={editMenuCategoryHy}
+          setEditMenuCategoryHy={setEditMenuCategoryHy}
+          editMenuDescriptionHy={editMenuDescriptionHy}
+          setEditMenuDescriptionHy={setEditMenuDescriptionHy}
           editMenuImagePreview={editMenuImagePreview}
           editMenuImageUrl={editMenuImageUrl}
           onEditMenuImageFileChange={handleEditMenuImageFileChange}
@@ -150,6 +181,14 @@ export default function AdminMenu() {
           onReload={loadMenu}
           menuFilter={menuFilter}
           setMenuFilter={setMenuFilter}
+          onMoveCategory={moveCategory}
+          onRenameCategory={renameCategory}
+          categoryAction={categoryAction}
+          enableCategoryEditor
+          onDeleteAllMenu={deleteAllMenu}
+          bulkDeleting={bulkDeleting}
+          language={language}
+          onLanguageChange={setLanguage}
         />
       </div>
     </div>

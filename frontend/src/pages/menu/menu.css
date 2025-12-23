@@ -107,6 +107,14 @@
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-wrap: wrap;
+}
+
+.menu-v2__lang-switch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .menu-v2__anchors {
@@ -175,6 +183,12 @@
 
 .menu-v2__btn.ghost {
   background: rgba(255, 255, 255, 0.06);
+}
+
+.menu-v2__btn.is-active {
+  background: rgba(34, 211, 238, 0.16);
+  border-color: rgba(34, 211, 238, 0.5);
+  color: #e0f2fe;
 }
 
 .menu-v2__controls {

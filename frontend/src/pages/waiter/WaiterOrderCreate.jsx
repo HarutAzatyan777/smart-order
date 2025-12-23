@@ -2,10 +2,17 @@ import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { createOrder } from "../../api/ordersApi";
 import useMenu from "../../hooks/useMenu";
+import useMenuLanguage from "../../hooks/useMenuLanguage";
+import {
+  SUPPORTED_LANGUAGES,
+  formatCurrencyLocalized,
+  localizeMenuItem
+} from "../../utils/menuI18n";
 import "./WaiterOrderCreate.css";
 
 export default function WaiterOrderCreate() {
-  const { menu, loading: menuLoading, error: menuError, refresh } = useMenu();
+  const { language, setLanguage } = useMenuLanguage();
+  const { menu, loading: menuLoading, error: menuError, refresh } = useMenu(language);
 
   const [table, setTable] = useState("");
   const [notes, setNotes] = useState("");
@@ -18,19 +25,26 @@ export default function WaiterOrderCreate() {
   const navigate = useNavigate();
 
   const waiterName = localStorage.getItem("waiterName") || "Unknown waiter";
+  const localizedMenu = useMemo(
+    () => menu.map((item) => localizeMenuItem(item, language)),
+    [menu, language]
+  );
 
   const getItemKey = (item) => item?.id || item?.sku || item?.name;
 
   const filteredMenu = useMemo(() => {
     const term = search.trim().toLowerCase();
-    if (!term) return menu;
+    if (!term) return localizedMenu;
 
-    return menu.filter((item) => {
-      const name = item.name?.toLowerCase() || "";
-      const desc = item.description?.toLowerCase() || "";
-      return name.includes(term) || desc.includes(term);
+    return localizedMenu.filter((item) => {
+      const name = item.displayName?.toLowerCase() || item.name?.toLowerCase() || "";
+      const desc =
+        item.displayDescription?.toLowerCase() || item.description?.toLowerCase() || "";
+      const cat =
+        item.displayCategory?.toLowerCase() || item.category?.toLowerCase() || "";
+      return name.includes(term) || desc.includes(term) || cat.includes(term);
     });
-  }, [menu, search]);
+  }, [localizedMenu, search]);
 
   const cartItems = useMemo(() => Object.values(cart), [cart]);
   const totalQty = useMemo(
@@ -139,8 +153,7 @@ export default function WaiterOrderCreate() {
   const canSubmit =
     !submitting && table && Number(table) > 0 && cartItems.length > 0;
 
-  const formatPrice = (value) =>
-    `${Number(value || 0).toLocaleString("en-US")} AMD`;
+  const formatPrice = (value) => formatCurrencyLocalized(value, language);
 
   return (
     <div className="order-create-page">
@@ -198,16 +211,31 @@ export default function WaiterOrderCreate() {
               />
             </div>
 
-            <div className="field">
-              <label>Search menu</label>
-              <input
-                type="search"
-                placeholder="Type dish or keyword"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
+        <div className="field">
+          <label>Search menu</label>
+          <input
+            type="search"
+            placeholder="Type dish or keyword"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        <div className="field">
+          <label>Language</label>
+          <div className="language-toggle">
+            {SUPPORTED_LANGUAGES.map((lang) => (
+              <button
+                key={lang.code}
+                type="button"
+                className={`ghost-btn ${language === lang.code ? "is-active" : ""}`}
+                onClick={() => setLanguage(lang.code)}
+              >
+                {lang.label}
+              </button>
+            ))}
           </div>
+        </div>
+      </div>
 
           {menuLoading ? (
             <div className="skeleton">Loading menu...</div>
@@ -229,6 +257,9 @@ export default function WaiterOrderCreate() {
                 const itemKey = getItemKey(item) || String(idx);
                 const hasImage = Boolean(item.imageUrl);
                 const unavailable = item.available === false;
+                const displayName = item.displayName || item.name;
+                const displayDescription = item.displayDescription || item.description;
+                const displayCategory = item.displayCategory || item.category;
 
                 return (
                   <article
@@ -240,16 +271,16 @@ export default function WaiterOrderCreate() {
                   >
                     {hasImage ? (
                       <div className="menu-card-image">
-                        <img src={item.imageUrl} alt={item.name || "Menu item"} />
+                        <img src={item.imageUrl} alt={displayName || "Menu item"} />
                       </div>
                     ) : null}
 
                     <div className="menu-card-body">
                       <div className="menu-card-top">
                         <div className="menu-card-title">
-                          <h3>{item.name}</h3>
-                          {item.category ? (
-                            <span className="pill">{item.category}</span>
+                          <h3>{displayName}</h3>
+                          {displayCategory ? (
+                            <span className="pill">{displayCategory}</span>
                           ) : null}
                           {item.sku ? (
                             <span className="pill ghost">SKU: {item.sku}</span>
@@ -259,7 +290,7 @@ export default function WaiterOrderCreate() {
                         <span className="price-tag">{formatPrice(item.price)}</span>
                       </div>
 
-                      {item.description ? <p className="muted">{item.description}</p> : null}
+                      {displayDescription ? <p className="muted">{displayDescription}</p> : null}
                       {item.notes ? <p className="muted small">Notes: {item.notes}</p> : null}
 
                       <div className="meta-row">
@@ -340,7 +371,7 @@ export default function WaiterOrderCreate() {
           {cartItems.map((item) => (
             <div key={item.id} className="cart-row">
               <div>
-                <p className="cart-title">{item.name}</p>
+                <p className="cart-title">{item.displayName || item.name}</p>
                 <p className="muted small">
                   {formatPrice(item.price)} each &bull;{" "}
                   {formatPrice((Number(item.price) || 0) * (item.qty || 0))} total
@@ -402,8 +433,8 @@ export default function WaiterOrderCreate() {
             <div className="modal-header">
               <div>
                 <p className="eyebrow soft">Confirm selection</p>
-                <h3>{modalItem.name}</h3>
-                <p className="muted">{modalItem.description}</p>
+                <h3>{modalItem.displayName || modalItem.name}</h3>
+                <p className="muted">{modalItem.displayDescription || modalItem.description}</p>
               </div>
               <button className="ghost-btn" onClick={() => setModalItem(null)}>
                 Close
@@ -412,7 +443,10 @@ export default function WaiterOrderCreate() {
             <div className="modal-body">
               {modalItem.imageUrl ? (
                 <div className="modal-image">
-                  <img src={modalItem.imageUrl} alt={modalItem.name || "Menu item"} />
+                  <img
+                    src={modalItem.imageUrl}
+                    alt={modalItem.displayName || modalItem.name || "Menu item"}
+                  />
                 </div>
               ) : null}
               <span className="price">{formatPrice(modalItem.price)}</span>

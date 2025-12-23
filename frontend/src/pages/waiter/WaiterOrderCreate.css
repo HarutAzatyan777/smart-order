@@ -167,6 +167,18 @@
   margin-bottom: 12px;
 }
 
+.language-toggle {
+  display: inline-flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.language-toggle .ghost-btn.is-active {
+  background: var(--waiter-info);
+  color: #0b1224;
+  border-color: var(--waiter-info-border);
+}
+
 .field {
   display: flex;
   flex-direction: column;

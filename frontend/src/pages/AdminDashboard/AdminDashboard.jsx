@@ -483,6 +483,8 @@ export default function AdminDashboard() {
           menuFilter={menuFilter}
           setMenuFilter={setMenuFilter}
           onViewAllClick={() => navigate("/admin/menu")}
+          categoryOrder={categoryOrder}
+          savingCategoryOrder={savingCategoryOrder}
         />
       </div>
     </div>

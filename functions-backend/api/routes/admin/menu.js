@@ -139,6 +139,36 @@ router.post('/', async (req, res) => {
 });
 
 // ===========================
+// CATEGORY ORDER
+// ===========================
+const categoryOrderDoc = db.collection("metadata").doc("categoryOrder");
+
+router.get("/categories/order", async (_req, res) => {
+  try {
+    const doc = await categoryOrderDoc.get();
+    const order = doc.exists ? doc.data()?.order || [] : [];
+    res.status(200).send({ order: Array.isArray(order) ? order : [] });
+  } catch (err) {
+    console.error("Get category order error:", err);
+    res.status(500).send({ error: err.message });
+  }
+});
+
+router.patch("/categories/order", async (req, res) => {
+  try {
+    const { order } = req.body || {};
+    if (!Array.isArray(order)) {
+      return res.status(400).send({ error: "Order must be an array of category keys" });
+    }
+    await categoryOrderDoc.set({ order }, { merge: true });
+    res.status(200).send({ order, message: "Category order updated" });
+  } catch (err) {
+    console.error("Update category order error:", err);
+    res.status(500).send({ error: err.message });
+  }
+});
+
+// ===========================
 // UPDATE MENU ITEM
 // ===========================
 router.put('/:id', async (req, res) => {

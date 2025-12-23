@@ -6,7 +6,7 @@ import { uploadMenuImage } from "../../utils/uploadMenuImage";
 
 export function useAdminMenu({ token, setError }) {
   const MENU_API = apiUrl("admin/menu");
-  const CATEGORY_ORDER_KEY = "adminCategoryOrder";
+  const CATEGORY_ORDER_API = apiUrl("admin/menu/categories/order");
 
   const [menu, setMenu] = useState([]);
 
@@ -43,6 +43,7 @@ export function useAdminMenu({ token, setError }) {
   const [menuActionId, setMenuActionId] = useState("");
   const [loadingMenu, setLoadingMenu] = useState(false);
   const [categoryOrder, setCategoryOrder] = useState([]);
+  const [savingCategoryOrder, setSavingCategoryOrder] = useState(false);
   const [categoryAction, setCategoryAction] = useState("");
   const [bulkDeleting, setBulkDeleting] = useState(false);
 
@@ -451,19 +452,23 @@ export function useAdminMenu({ token, setError }) {
     return Array.from(set).sort();
   }, [filteredMenu]);
 
-  useEffect(() => {
+  const loadCategoryOrder = useCallback(async () => {
+    if (!token) return;
     try {
-      const cached = localStorage.getItem(CATEGORY_ORDER_KEY);
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed)) {
-          setCategoryOrder(parsed);
-        }
-      }
+      const res = await fetchJson(CATEGORY_ORDER_API, withAuth(), "Cannot load category order");
+      const fromApi = Array.isArray(res?.order) ? res.order : [];
+      setCategoryOrder((prev) => {
+        if (fromApi.length) return fromApi;
+        return prev;
+      });
     } catch (err) {
-      console.error("Could not read category order", err);
+      console.error(err);
     }
-  }, []);
+  }, [CATEGORY_ORDER_API, token]);
+
+  useEffect(() => {
+    loadCategoryOrder();
+  }, [loadCategoryOrder]);
 
   useEffect(() => {
     setCategoryOrder((prev) => {
@@ -476,21 +481,32 @@ export function useAdminMenu({ token, setError }) {
     });
   }, [allCategories]);
 
-  useEffect(() => {
-    if (!categoryOrder.length) return;
-    try {
-      localStorage.setItem(CATEGORY_ORDER_KEY, JSON.stringify(categoryOrder));
-    } catch (err) {
-      console.error("Could not persist category order", err);
-    }
-  }, [categoryOrder]);
-
   const categories = useMemo(() => {
     const baseOrder = categoryOrder.length ? categoryOrder : allCategories;
     const orderedVisible = baseOrder.filter((cat) => filteredCategories.includes(cat));
     const missing = filteredCategories.filter((cat) => !orderedVisible.includes(cat));
     return [...orderedVisible, ...missing];
   }, [categoryOrder, allCategories, filteredCategories]);
+
+  const persistCategoryOrder = async (order) => {
+    try {
+      setSavingCategoryOrder(true);
+      await fetchJson(
+        CATEGORY_ORDER_API,
+        withAuth({
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ order })
+        }),
+        "Could not save category order"
+      );
+    } catch (err) {
+      console.error(err);
+      setError?.(err.message || "Could not save category order");
+    } finally {
+      setSavingCategoryOrder(false);
+    }
+  };
 
   const moveCategory = (category, direction) => {
     setCategoryOrder((prev) => {
@@ -501,6 +517,7 @@ export function useAdminMenu({ token, setError }) {
       const next = [...prev];
       next.splice(idx, 1);
       next.splice(target, 0, category);
+      persistCategoryOrder(next);
       return next;
     });
   };
@@ -551,6 +568,7 @@ export function useAdminMenu({ token, setError }) {
           const value = cat === fromName ? nextName : cat;
           if (!next.includes(value)) next.push(value);
         });
+        persistCategoryOrder(next);
         return next;
       });
       if (menuCategory === fromName) setMenuCategory(nextName);
@@ -642,6 +660,8 @@ export function useAdminMenu({ token, setError }) {
     editMenuCategoryHy,
     setEditMenuCategoryHy,
     editMenuDescriptionHy,
-    setEditMenuDescriptionHy
+    setEditMenuDescriptionHy,
+    categoryOrder,
+    savingCategoryOrder
   };
 }

@@ -12,7 +12,7 @@ import "./menu.css";
 
 export default function MenuPage() {
   const { language, setLanguage } = useMenuLanguage();
-  const { menu, loading, error, refresh } = useMenu(language);
+  const { menu, loading, error, refresh, categoryOrder } = useMenu(language);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
   const [sortBy, setSortBy] = useState("featured");
@@ -22,8 +22,6 @@ export default function MenuPage() {
   const [showFloatingFilters, setShowFloatingFilters] = useState(false);
   const sectionRefs = useRef([]);
 
-  const categoryOrder = useMemo(loadCategoryOrder, []);
-
   const localizedMenu = useMemo(
     () => menu.map((item) => localizeMenuItem(item, language)),
     [menu, language]
@@ -31,7 +29,7 @@ export default function MenuPage() {
 
   const categoryOptions = useMemo(() => {
     const list = buildCategoryList(localizedMenu, language);
-    return applyCategoryOrder(list, categoryOrder);
+    return applyCategoryOrder(list, categoryOrder || []);
   }, [localizedMenu, language, categoryOrder]);
 
   const topCategories = useMemo(() => categoryOptions.slice(0, 6), [categoryOptions]);

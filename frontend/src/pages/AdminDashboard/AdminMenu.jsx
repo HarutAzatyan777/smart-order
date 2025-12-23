@@ -76,7 +76,9 @@ export default function AdminMenu() {
     editMenuCategoryHy,
     setEditMenuCategoryHy,
     editMenuDescriptionHy,
-    setEditMenuDescriptionHy
+    setEditMenuDescriptionHy,
+    categoryOrder,
+    savingCategoryOrder
   } = useAdminMenu({ token, setError });
 
   useEffect(() => {
@@ -189,6 +191,8 @@ export default function AdminMenu() {
           bulkDeleting={bulkDeleting}
           language={language}
           onLanguageChange={setLanguage}
+          categoryOrder={categoryOrder}
+          savingCategoryOrder={savingCategoryOrder}
         />
       </div>
     </div>

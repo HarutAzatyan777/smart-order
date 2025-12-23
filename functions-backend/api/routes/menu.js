@@ -62,6 +62,19 @@ const localizeItem = (item, lang = "en") => {
   };
 };
 
+// CATEGORY ORDER (public)
+const categoryOrderDoc = db.collection("metadata").doc("categoryOrder");
+router.get("/categories/order", async (_req, res) => {
+  try {
+    const doc = await categoryOrderDoc.get();
+    const order = doc.exists ? doc.data()?.order || [] : [];
+    res.status(200).send({ order: Array.isArray(order) ? order : [] });
+  } catch (error) {
+    console.error("getCategoryOrder error:", error);
+    res.status(500).send({ error: error.message });
+  }
+});
+
 // GET ALL MENU ITEMS
 router.get('/', async (req, res) => {
   try {

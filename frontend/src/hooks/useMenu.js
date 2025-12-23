@@ -7,11 +7,25 @@ export default function useMenu(language = "en") {
   const [menu, setMenu] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [categoryOrder, setCategoryOrder] = useState([]);
   const apiFallbackRef = useRef([]);
 
   // Env toggles
   const disableListener =
     String(import.meta?.env?.VITE_DISABLE_MENU_LISTENER || "").toLowerCase() === "true";
+
+  const loadCategoryOrder = useCallback(async () => {
+    try {
+      const res = await fetch(apiUrl("menu/categories/order"));
+      if (!res.ok) throw new Error("Category order request failed");
+      const data = await res.json();
+      if (Array.isArray(data?.order)) {
+        setCategoryOrder(data.order);
+      }
+    } catch (err) {
+      console.error("Category order fetch error:", err);
+    }
+  }, []);
 
   const loadMenu = useCallback(async () => {
     setLoading(true);
@@ -28,6 +42,7 @@ export default function useMenu(language = "en") {
       const list = Array.isArray(data) ? data : [];
       apiFallbackRef.current = list;
       setMenu(list);
+      loadCategoryOrder();
     } catch (err) {
       console.error("Menu fetch error:", err);
       setError("Could not load menu. Please retry.");
@@ -35,7 +50,7 @@ export default function useMenu(language = "en") {
     } finally {
       setLoading(false);
     }
-  }, [language]);
+  }, [language, loadCategoryOrder]);
 
   useEffect(() => {
     setError("");
@@ -76,7 +91,8 @@ export default function useMenu(language = "en") {
     );
 
     return () => unsubscribe();
-  }, [loadMenu, disableListener, language]);
+    loadCategoryOrder();
+  }, [loadMenu, disableListener, language, loadCategoryOrder]);
 
-  return { menu, loading, error, refresh: loadMenu };
+  return { menu, loading, error, refresh: loadMenu, categoryOrder };
 }

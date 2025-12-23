@@ -68,7 +68,9 @@ const MenuPanel = forwardRef(function MenuPanel({
   onDeleteAllMenu,
   bulkDeleting = false,
   language = "en",
-  onLanguageChange
+  onLanguageChange,
+  categoryOrder = [],
+  savingCategoryOrder = false
 }, ref) {
   const visibleCategories =
     maxCategoryList === Infinity ? categories : categories.slice(0, maxCategoryList);
@@ -245,7 +247,7 @@ const MenuPanel = forwardRef(function MenuPanel({
                         type="button"
                         className="ghost-btn small"
                         onClick={() => onMoveCategory?.(cat, -1)}
-                        disabled={!onMoveCategory || idx === 0 || categoryBusy}
+                        disabled={!onMoveCategory || idx === 0 || categoryBusy || savingCategoryOrder}
                       >
                         Move up
                       </button>
@@ -254,7 +256,10 @@ const MenuPanel = forwardRef(function MenuPanel({
                         className="ghost-btn small"
                         onClick={() => onMoveCategory?.(cat, 1)}
                         disabled={
-                          !onMoveCategory || idx === categories.length - 1 || categoryBusy
+                          !onMoveCategory ||
+                          idx === categories.length - 1 ||
+                          categoryBusy ||
+                          savingCategoryOrder
                         }
                       >
                         Move down

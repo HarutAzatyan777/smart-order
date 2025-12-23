@@ -3,7 +3,7 @@ import { apiUrl } from "../config/api";
 
 export default function useTables() {
   const [tables, setTables] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   const loadTables = useCallback(async () => {

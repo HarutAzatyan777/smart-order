@@ -7,6 +7,7 @@ import {
   formatCurrencyLocalized,
   localizeMenuItem
 } from "../../utils/menuI18n";
+import { applyCategoryOrder, loadCategoryOrder, orderIndex } from "../../utils/categoryOrder";
 import "./menu.css";
 
 export default function MenuPage() {
@@ -21,16 +22,17 @@ export default function MenuPage() {
   const [showFloatingFilters, setShowFloatingFilters] = useState(false);
   const sectionRefs = useRef([]);
 
+  const categoryOrder = useMemo(loadCategoryOrder, []);
+
   const localizedMenu = useMemo(
     () => menu.map((item) => localizeMenuItem(item, language)),
     [menu, language]
   );
 
   const categoryOptions = useMemo(() => {
-    return buildCategoryList(localizedMenu, language).sort((a, b) =>
-      a.label.localeCompare(b.label)
-    );
-  }, [localizedMenu, language]);
+    const list = buildCategoryList(localizedMenu, language);
+    return applyCategoryOrder(list, categoryOrder);
+  }, [localizedMenu, language, categoryOrder]);
 
   const topCategories = useMemo(() => categoryOptions.slice(0, 6), [categoryOptions]);
 
@@ -70,13 +72,17 @@ export default function MenuPage() {
         case "alpha":
           return (a.displayName || "").localeCompare(b.displayName || "");
         case "featured":
-        default:
+        default: {
+          const idxA = orderIndex(a.category || "Uncategorized", categoryOrder);
+          const idxB = orderIndex(b.category || "Uncategorized", categoryOrder);
+          if (idxA !== idxB) return idxA - idxB;
           return (a.displayCategory || "").localeCompare(b.displayCategory || "");
+        }
       }
     });
 
     return sorted;
-  }, [localizedMenu, category, search, sortBy]);
+  }, [localizedMenu, category, search, sortBy, categoryOrder]);
 
   const groupedMenu = useMemo(() => {
     const map = new Map();
@@ -85,8 +91,15 @@ export default function MenuPage() {
       if (!map.has(key)) map.set(key, []);
       map.get(key).push(item);
     });
-    return Array.from(map.entries());
-  }, [filteredMenu]);
+    const entries = Array.from(map.entries());
+    entries.sort((a, b) => {
+      const idxA = orderIndex(a[0], categoryOrder);
+      const idxB = orderIndex(b[0], categoryOrder);
+      if (idxA !== idxB) return idxA - idxB;
+      return a[0].localeCompare(b[0]);
+    });
+    return entries;
+  }, [filteredMenu, categoryOrder]);
 
   const formatPrice = (value) => formatCurrencyLocalized(value, language);
 

@@ -43,7 +43,7 @@ router.post('/', async (req, res) => {
   }
 });
 
-const localizeItem = (item, lang = "en") => {
+const localizeItem = (item, lang = "en", categories = {}) => {
   const safeLang = ["en", "hy"].includes(String(lang).toLowerCase()) ? String(lang).toLowerCase() : "en";
   const tx = item.translations || {};
   const pickField = (field) => {
@@ -54,21 +54,25 @@ const localizeItem = (item, lang = "en") => {
     return item[field];
   };
 
+  const cat = categories[item.category];
+  const label =
+    (cat?.labels && (cat.labels[safeLang] || cat.labels.en)) ||
+    pickField("category") ||
+    item.category;
+
   return {
     ...item,
     displayName: pickField("name"),
     displayDescription: pickField("description"),
-    displayCategory: pickField("category")
+    displayCategory: label
   };
 };
 
-// CATEGORY ORDER (public)
-const categoryOrderDoc = db.collection("metadata").doc("categoryOrder");
-router.get("/categories/order", async (_req, res) => {
+router.get("/categories", async (_req, res) => {
   try {
-    const doc = await categoryOrderDoc.get();
-    const order = doc.exists ? doc.data()?.order || [] : [];
-    res.status(200).send({ order: Array.isArray(order) ? order : [] });
+    const list = await readCategories();
+    const sorted = [...list].sort((a, b) => (a.order || 0) - (b.order || 0));
+    res.status(200).send({ categories: sorted });
   } catch (error) {
     console.error("getCategoryOrder error:", error);
     res.status(500).send({ error: error.message });
@@ -95,7 +99,9 @@ router.get('/', async (req, res) => {
       ...doc.data()
     }));
 
-    const items = lang ? itemsRaw.map((item) => localizeItem(item, lang)) : itemsRaw;
+    const categories = categoryMapFromList(await readCategories());
+
+    const items = lang ? itemsRaw.map((item) => localizeItem(item, lang, categories)) : itemsRaw;
 
     res.status(200).send(items);
 
@@ -109,6 +115,7 @@ router.get('/', async (req, res) => {
 router.get('/grouped', async (req, res) => {
   try {
     const { lang } = req.query;
+    const categories = categoryMapFromList(await readCategories());
     const snapshot = await db.collection('menu')
       .orderBy('createdAt', 'desc')
       .get();
@@ -116,7 +123,7 @@ router.get('/grouped', async (req, res) => {
     const items = snapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
-    })).map((item) => (lang ? localizeItem(item, lang) : item));
+    })).map((item) => (lang ? localizeItem(item, lang, categories) : item));
 
     const grouped = {};
     items.forEach(item => {
@@ -186,3 +193,14 @@ router.delete('/:id', async (req, res) => {
 });
 
 module.exports = router;
+const categoriesDoc = db.collection("metadata").doc("categories");
+const readCategories = async () => {
+  const doc = await categoriesDoc.get();
+  const list = doc.exists ? doc.data()?.list || [] : [];
+  return Array.isArray(list) ? list : [];
+};
+const categoryMapFromList = (list = []) =>
+  list.reduce((acc, cat) => {
+    acc[cat.key] = cat;
+    return acc;
+  }, {});

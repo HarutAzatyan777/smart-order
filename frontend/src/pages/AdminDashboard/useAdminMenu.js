@@ -6,9 +6,10 @@ import { uploadMenuImage } from "../../utils/uploadMenuImage";
 
 export function useAdminMenu({ token, setError }) {
   const MENU_API = apiUrl("admin/menu");
-  const CATEGORY_ORDER_API = apiUrl("admin/menu/categories/order");
+  const CATEGORY_API = apiUrl("admin/menu/categories");
 
   const [menu, setMenu] = useState([]);
+  const [categoriesMeta, setCategoriesMeta] = useState([]);
 
   // create menu fields
   const [menuName, setMenuName] = useState("");
@@ -46,6 +47,7 @@ export function useAdminMenu({ token, setError }) {
   const [savingCategoryOrder, setSavingCategoryOrder] = useState(false);
   const [categoryAction, setCategoryAction] = useState("");
   const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [categoriesLoading, setCategoriesLoading] = useState(false);
 
   const clearError = () => setError?.("");
   const withAuth = (options = {}) => ({
@@ -178,7 +180,45 @@ export function useAdminMenu({ token, setError }) {
 
       const summary = { created: 0, skipped: parsedRows.length - payloads.length, failed: [] };
 
+      const existingKeys = new Set(categoriesMeta.map((c) => c.key));
+      const missingCategories = Array.from(
+        new Set(
+          payloads
+            .map((p) => p.category?.trim())
+            .filter(Boolean)
+            .filter((cat) => !existingKeys.has(cat))
+        )
+      );
+
+      for (const cat of missingCategories) {
+        const sample = payloads.find((p) => p.category === cat);
+        const labelEn = sample?.translations?.en?.category || cat;
+        const labelHy = sample?.translations?.hy?.category || labelEn;
+        try {
+          await fetchJson(
+            CATEGORY_API,
+            withAuth({
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ key: cat, labels: { en: labelEn, hy: labelHy } })
+            }),
+            "Could not create category"
+          );
+          existingKeys.add(cat);
+        } catch (err) {
+          summary.failed.push({ name: `Category ${cat}`, error: err.message || "Could not create category" });
+        }
+      }
+      if (missingCategories.length) {
+        await loadCategories();
+        await loadCategoryOrder();
+      }
+
       for (const payload of payloads) {
+        if (!existingKeys.has(payload.category)) {
+          summary.failed.push({ name: payload.name, error: "Category does not exist" });
+          continue;
+        }
         try {
           await fetchJson(
             MENU_API,
@@ -208,6 +248,13 @@ export function useAdminMenu({ token, setError }) {
   const addMenuItem = async () => {
     if (!menuName.trim() || !menuPrice || !menuCategory.trim()) {
       setError?.("Menu name, price, and category required");
+      return;
+    }
+    const validCategory = categoriesMeta.length
+      ? categoriesMeta.some((c) => c.key === menuCategory.trim())
+      : true;
+    if (!validCategory) {
+      setError?.("Select a valid category");
       return;
     }
 
@@ -307,6 +354,13 @@ export function useAdminMenu({ token, setError }) {
 
     if (!editMenuName.trim() || !editMenuPrice || !editMenuCategory.trim()) {
       setError?.("Menu name, price, and category required");
+      return;
+    }
+    const validCategory = categoriesMeta.length
+      ? categoriesMeta.some((c) => c.key === editMenuCategory.trim())
+      : true;
+    if (!validCategory) {
+      setError?.("Select a valid category");
       return;
     }
 
@@ -444,8 +498,9 @@ export function useAdminMenu({ token, setError }) {
 
   const allCategories = useMemo(() => {
     const set = new Set(menu.map((m) => m.category || "Uncategorized"));
+    categoriesMeta.forEach((cat) => set.add(cat.key));
     return Array.from(set).sort();
-  }, [menu]);
+  }, [menu, categoriesMeta]);
 
   const filteredCategories = useMemo(() => {
     const set = new Set(filteredMenu.map((m) => m.category || "Uncategorized"));
@@ -455,7 +510,7 @@ export function useAdminMenu({ token, setError }) {
   const loadCategoryOrder = useCallback(async () => {
     if (!token) return;
     try {
-      const res = await fetchJson(CATEGORY_ORDER_API, withAuth(), "Cannot load category order");
+      const res = await fetchJson(`${CATEGORY_API}/order`, withAuth(), "Cannot load category order");
       const fromApi = Array.isArray(res?.order) ? res.order : [];
       setCategoryOrder((prev) => {
         if (fromApi.length) return fromApi;
@@ -464,11 +519,33 @@ export function useAdminMenu({ token, setError }) {
     } catch (err) {
       console.error(err);
     }
-  }, [CATEGORY_ORDER_API, token]);
+  }, [CATEGORY_API, token]);
 
   useEffect(() => {
     loadCategoryOrder();
   }, [loadCategoryOrder]);
+
+  const loadCategories = useCallback(async () => {
+    if (!token) return;
+    setCategoriesLoading(true);
+    try {
+      const res = await fetchJson(CATEGORY_API, withAuth(), "Cannot load categories");
+      const list = Array.isArray(res?.categories) ? res.categories : [];
+      const sorted = [...list].sort((a, b) => (a.order || 0) - (b.order || 0));
+      setCategoriesMeta(sorted);
+      if (sorted.length) {
+        setCategoryOrder((prev) => (prev.length ? prev : sorted.map((c) => c.key)));
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setCategoriesLoading(false);
+    }
+  }, [CATEGORY_API, token]);
+
+  useEffect(() => {
+    loadCategories();
+  }, [loadCategories]);
 
   useEffect(() => {
     setCategoryOrder((prev) => {
@@ -482,17 +559,24 @@ export function useAdminMenu({ token, setError }) {
   }, [allCategories]);
 
   const categories = useMemo(() => {
+    if (categoriesMeta.length) {
+      const keyed = new Map(categoriesMeta.map((c) => [c.key, c]));
+      const ordered = categoryOrder.length
+        ? categoryOrder.map((k) => keyed.get(k)).filter(Boolean)
+        : categoriesMeta;
+      return ordered;
+    }
     const baseOrder = categoryOrder.length ? categoryOrder : allCategories;
     const orderedVisible = baseOrder.filter((cat) => filteredCategories.includes(cat));
     const missing = filteredCategories.filter((cat) => !orderedVisible.includes(cat));
-    return [...orderedVisible, ...missing];
-  }, [categoryOrder, allCategories, filteredCategories]);
+    return [...orderedVisible, ...missing].map((key) => ({ key, labels: { en: key, hy: key } }));
+  }, [categoryOrder, allCategories, filteredCategories, categoriesMeta]);
 
   const persistCategoryOrder = async (order) => {
     try {
       setSavingCategoryOrder(true);
       await fetchJson(
-        CATEGORY_ORDER_API,
+        `${CATEGORY_API}/order`,
         withAuth({
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
@@ -522,61 +606,88 @@ export function useAdminMenu({ token, setError }) {
     });
   };
 
-  const renameCategory = async (fromName, toName) => {
-    const nextName = toName.trim();
-    if (!fromName || !nextName) {
+  const renameCategory = async (key, labelEn, labelHy) => {
+    const nextName = labelEn?.trim();
+    if (!key || !nextName) {
       setError?.("Category name cannot be empty");
       return;
     }
-    if (fromName === nextName) return;
-
-    const itemsToUpdate = menu.filter(
-      (item) => (item.category || "Uncategorized") === fromName
-    );
-
     try {
-      setCategoryAction(fromName);
+      setCategoryAction(key);
       clearError();
-      for (const item of itemsToUpdate) {
-        const existingTranslations = item.translations || {};
-        const payloadTranslations = {
-          ...existingTranslations,
-          en: {
-            ...(existingTranslations.en || {}),
-            category: nextName
-          },
-          hy: {
-            ...(existingTranslations.hy || {}),
-            category: existingTranslations.hy?.category || nextName
-          }
-        };
-
-        await fetchJson(
-          `${MENU_API}/${item.id}`,
-          withAuth({
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ category: nextName, translations: payloadTranslations })
-          }),
-          "Could not rename category"
-        );
-      }
-
-      setCategoryOrder((prev) => {
-        const next = [];
-        prev.forEach((cat) => {
-          const value = cat === fromName ? nextName : cat;
-          if (!next.includes(value)) next.push(value);
-        });
-        persistCategoryOrder(next);
-        return next;
-      });
-      if (menuCategory === fromName) setMenuCategory(nextName);
-      if (editMenuCategory === fromName) setEditMenuCategory(nextName);
-      loadMenu();
+      await fetchJson(
+        `${CATEGORY_API}/${key}`,
+        withAuth({
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            labels: { en: labelEn.trim(), hy: labelHy?.trim() || labelEn.trim() }
+          })
+        }),
+        "Could not rename category"
+      );
+      loadCategories();
     } catch (err) {
       console.error(err);
       setError?.(err.message || "Could not rename category");
+    } finally {
+      setCategoryAction("");
+    }
+  };
+
+  const createCategory = async ({ key, labelEn, labelHy }) => {
+    const normalizedKey = key?.trim();
+    if (!normalizedKey || !labelEn?.trim()) {
+      setError?.("Category key and English label required");
+      return;
+    }
+    const exists = categoriesMeta.some((c) => c.key === normalizedKey);
+    if (exists) {
+      setError?.("Category with this key already exists");
+      return;
+    }
+    try {
+      setCategoryAction(normalizedKey);
+      clearError();
+      await fetchJson(
+        CATEGORY_API,
+        withAuth({
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            key: normalizedKey,
+            labels: { en: labelEn.trim(), hy: labelHy?.trim() || labelEn.trim() }
+          })
+        }),
+        "Could not create category"
+      );
+      await loadCategories();
+      await loadCategoryOrder();
+    } catch (err) {
+      console.error(err);
+      setError?.(err.message || "Could not create category");
+    } finally {
+      setCategoryAction("");
+    }
+  };
+
+  const deleteCategory = async (key) => {
+    if (!key) return;
+    if (!window.confirm("Delete this category? Make sure no items are assigned to it.")) return;
+    try {
+      setCategoryAction(key);
+      await fetchJson(
+        `${CATEGORY_API}/${key}`,
+        withAuth({ method: "DELETE" }),
+        "Could not delete category"
+      );
+      await loadCategories();
+      await loadCategoryOrder();
+      if (menuCategory === key) setMenuCategory("");
+      if (editMenuCategory === key) setEditMenuCategory("");
+    } catch (err) {
+      console.error(err);
+      setError?.(err.message || "Could not delete category");
     } finally {
       setCategoryAction("");
     }
@@ -662,6 +773,9 @@ export function useAdminMenu({ token, setError }) {
     editMenuDescriptionHy,
     setEditMenuDescriptionHy,
     categoryOrder,
-    savingCategoryOrder
+    savingCategoryOrder,
+    categoriesLoading,
+    createCategory,
+    deleteCategory
   };
 }

@@ -78,7 +78,10 @@ export default function AdminMenu() {
     editMenuDescriptionHy,
     setEditMenuDescriptionHy,
     categoryOrder,
-    savingCategoryOrder
+    savingCategoryOrder,
+    categoriesLoading,
+    createCategory,
+    deleteCategory
   } = useAdminMenu({ token, setError });
 
   useEffect(() => {
@@ -193,6 +196,9 @@ export default function AdminMenu() {
           onLanguageChange={setLanguage}
           categoryOrder={categoryOrder}
           savingCategoryOrder={savingCategoryOrder}
+          categoriesLoading={categoriesLoading}
+          createCategory={createCategory}
+          deleteCategory={deleteCategory}
         />
       </div>
     </div>

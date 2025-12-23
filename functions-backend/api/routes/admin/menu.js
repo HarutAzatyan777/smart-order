@@ -22,6 +22,27 @@ const sanitizeFileName = (input = "") => {
     .toLowerCase();
 };
 
+const categoriesDoc = db.collection("metadata").doc("categories");
+
+const normalizeKey = (key = "") =>
+  String(key || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+const readCategories = async () => {
+  const doc = await categoriesDoc.get();
+  const list = doc.exists ? doc.data()?.list || [] : [];
+  return Array.isArray(list) ? list : [];
+};
+
+const writeCategories = async (list) => {
+  await categoriesDoc.set({ list }, { merge: true });
+};
+
+const findCategory = (list, key) => list.find((c) => c.key === key);
+
 // Multer + Firebase Functions: the emulator populates req.rawBody and consumes the stream.
 // Recreate a readable stream from rawBody so multer can parse multipart data.
 const restoreRawBodyForMulter = (req, res, next) => {
@@ -116,6 +137,11 @@ router.post('/', async (req, res) => {
       return res.status(400).send({ error: 'Missing name, price or category' });
     }
 
+    const categories = await readCategories();
+    if (!findCategory(categories, category)) {
+      return res.status(400).send({ error: "Category does not exist" });
+    }
+
     const docRef = await db.collection('menu').add({
       name,
       price,
@@ -139,15 +165,122 @@ router.post('/', async (req, res) => {
 });
 
 // ===========================
-// CATEGORY ORDER
+// CATEGORIES CRUD & ORDER
 // ===========================
-const categoryOrderDoc = db.collection("metadata").doc("categoryOrder");
+router.get("/categories", async (_req, res) => {
+  try {
+    const list = await readCategories();
+    res.status(200).send({ categories: list });
+  } catch (err) {
+    console.error("Get categories error:", err);
+    res.status(500).send({ error: err.message });
+  }
+});
 
+router.post("/categories", async (req, res) => {
+  try {
+    const { key, labels } = req.body || {};
+    const normalizedKey = normalizeKey(key);
+    if (!normalizedKey) return res.status(400).send({ error: "Category key required" });
+    if (!labels?.en) return res.status(400).send({ error: "English label required" });
+
+    const list = await readCategories();
+    if (findCategory(list, normalizedKey)) {
+      return res.status(400).send({ error: "Category key already exists" });
+    }
+
+    const next = [...list, { key: normalizedKey, order: list.length, labels }];
+    await writeCategories(next);
+    res.status(201).send({ category: { key: normalizedKey, order: list.length, labels } });
+  } catch (err) {
+    console.error("Create category error:", err);
+    res.status(500).send({ error: err.message });
+  }
+});
+
+router.put("/categories/:key", async (req, res) => {
+  try {
+    const { key } = req.params;
+    const { labels } = req.body || {};
+    const normalizedKey = normalizeKey(key);
+    if (!normalizedKey) return res.status(400).send({ error: "Category key required" });
+    if (!labels?.en) return res.status(400).send({ error: "English label required" });
+
+    const list = await readCategories();
+    if (!findCategory(list, normalizedKey)) {
+      return res.status(404).send({ error: "Category not found" });
+    }
+
+    const next = list.map((cat) =>
+      cat.key === normalizedKey ? { ...cat, labels: { ...cat.labels, ...labels } } : cat
+    );
+    await writeCategories(next);
+    res.status(200).send({ category: next.find((c) => c.key === normalizedKey) });
+  } catch (err) {
+    console.error("Update category error:", err);
+    res.status(500).send({ error: err.message });
+  }
+});
+
+router.delete("/categories/:key", async (req, res) => {
+  try {
+    const { key } = req.params;
+    const normalizedKey = normalizeKey(key);
+    if (!normalizedKey) return res.status(400).send({ error: "Category key required" });
+
+    const menuWithCategory = await db
+      .collection("menu")
+      .where("category", "==", normalizedKey)
+      .limit(1)
+      .get();
+    if (!menuWithCategory.empty) {
+      return res.status(400).send({ error: "Cannot delete category with menu items. Reassign first." });
+    }
+
+    const list = await readCategories();
+    const next = list
+      .filter((cat) => cat.key !== normalizedKey)
+      .map((cat, idx) => ({ ...cat, order: idx }));
+    await writeCategories(next);
+    res.status(200).send({ categories: next });
+  } catch (err) {
+    console.error("Delete category error:", err);
+    res.status(500).send({ error: err.message });
+  }
+});
+
+router.patch("/categories/reorder", async (req, res) => {
+  try {
+    const { order } = req.body || {};
+    if (!Array.isArray(order)) {
+      return res.status(400).send({ error: "Order must be an array of category keys" });
+    }
+    const list = await readCategories();
+    const keyed = new Map(list.map((c) => [c.key, c]));
+    const next = [];
+    order.forEach((k, idx) => {
+      const cat = keyed.get(k);
+      if (cat) next.push({ ...cat, order: idx });
+    });
+    list.forEach((cat) => {
+      if (!next.find((c) => c.key === cat.key)) {
+        next.push({ ...cat, order: next.length });
+      }
+    });
+    await writeCategories(next);
+    res.status(200).send({ categories: next });
+  } catch (err) {
+    console.error("Reorder categories error:", err);
+    res.status(500).send({ error: err.message });
+  }
+});
+
+// Backward-compat: order-only endpoints
 router.get("/categories/order", async (_req, res) => {
   try {
-    const doc = await categoryOrderDoc.get();
-    const order = doc.exists ? doc.data()?.order || [] : [];
-    res.status(200).send({ order: Array.isArray(order) ? order : [] });
+    const list = await readCategories();
+    const sorted = [...list].sort((a, b) => (a.order || 0) - (b.order || 0));
+    res.status(200).send({ order: sorted.map((c) => c.key) });
   } catch (err) {
     console.error("Get category order error:", err);
     res.status(500).send({ error: err.message });
@@ -160,8 +293,20 @@ router.patch("/categories/order", async (req, res) => {
     if (!Array.isArray(order)) {
       return res.status(400).send({ error: "Order must be an array of category keys" });
     }
-    await categoryOrderDoc.set({ order }, { merge: true });
-    res.status(200).send({ order, message: "Category order updated" });
+    const list = await readCategories();
+    const keyed = new Map(list.map((c) => [c.key, c]));
+    const next = [];
+    order.forEach((k, idx) => {
+      const cat = keyed.get(k);
+      if (cat) next.push({ ...cat, order: idx });
+    });
+    list.forEach((cat) => {
+      if (!next.find((c) => c.key === cat.key)) {
+        next.push({ ...cat, order: next.length });
+      }
+    });
+    await writeCategories(next);
+    res.status(200).send({ order: next.map((c) => c.key) });
   } catch (err) {
     console.error("Update category order error:", err);
     res.status(500).send({ error: err.message });
@@ -175,6 +320,13 @@ router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const updates = req.body;
+
+    if (updates.category) {
+      const categories = await readCategories();
+      if (!findCategory(categories, updates.category)) {
+        return res.status(400).send({ error: "Category does not exist" });
+      }
+    }
 
     const docRef = db.collection('menu').doc(id);
     const doc = await docRef.get();

@@ -7,23 +7,25 @@ export default function useMenu(language = "en") {
   const [menu, setMenu] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [categoryOrder, setCategoryOrder] = useState([]);
+  const [categories, setCategories] = useState([]);
   const apiFallbackRef = useRef([]);
 
   // Env toggles
   const disableListener =
     String(import.meta?.env?.VITE_DISABLE_MENU_LISTENER || "").toLowerCase() === "true";
 
-  const loadCategoryOrder = useCallback(async () => {
+  const loadCategories = useCallback(async () => {
     try {
-      const res = await fetch(apiUrl("menu/categories/order"));
-      if (!res.ok) throw new Error("Category order request failed");
+      const res = await fetch(apiUrl("menu/categories"));
+      if (!res.ok) throw new Error("Category request failed");
       const data = await res.json();
-      if (Array.isArray(data?.order)) {
-        setCategoryOrder(data.order);
+      if (Array.isArray(data?.categories)) {
+        setCategories(
+          [...data.categories].sort((a, b) => (a.order || 0) - (b.order || 0))
+        );
       }
     } catch (err) {
-      console.error("Category order fetch error:", err);
+      console.error("Category fetch error:", err);
     }
   }, []);
 
@@ -42,7 +44,7 @@ export default function useMenu(language = "en") {
       const list = Array.isArray(data) ? data : [];
       apiFallbackRef.current = list;
       setMenu(list);
-      loadCategoryOrder();
+      loadCategories();
     } catch (err) {
       console.error("Menu fetch error:", err);
       setError("Could not load menu. Please retry.");
@@ -50,7 +52,7 @@ export default function useMenu(language = "en") {
     } finally {
       setLoading(false);
     }
-  }, [language, loadCategoryOrder]);
+  }, [language, loadCategories]);
 
   useEffect(() => {
     setError("");
@@ -91,8 +93,14 @@ export default function useMenu(language = "en") {
     );
 
     return () => unsubscribe();
-    loadCategoryOrder();
-  }, [loadMenu, disableListener, language, loadCategoryOrder]);
+    loadCategories();
+  }, [loadMenu, disableListener, language, loadCategories]);
 
-  return { menu, loading, error, refresh: loadMenu, categoryOrder };
+  return {
+    menu,
+    loading,
+    error,
+    refresh: loadMenu,
+    categories
+  };
 }

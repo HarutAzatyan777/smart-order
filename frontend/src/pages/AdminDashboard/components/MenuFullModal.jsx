@@ -1,6 +1,8 @@
 export default function MenuFullModal({ open, onClose, categories, filteredMenu }) {
   if (!open) return null;
 
+  const categoriesList = categories.map((c) => (typeof c === "string" ? { key: c, label: c } : { key: c.key, label: c.label || c.labels?.en || c.key }));
+
   const itemsForCategory = (cat) =>
     filteredMenu.filter((m) => (m.category || "Uncategorized") === cat);
 
@@ -13,16 +15,16 @@ export default function MenuFullModal({ open, onClose, categories, filteredMenu 
           <p className="muted small">Browse every category without scrolling the dashboard.</p>
         </header>
         <div className="menu-full-body">
-          {categories.length === 0 ? (
+          {categoriesList.length === 0 ? (
             <p>No menu items available yet.</p>
           ) : (
-            categories.map((cat) => {
-              const items = itemsForCategory(cat);
+            categoriesList.map((cat) => {
+              const items = itemsForCategory(cat.key);
               if (!items.length) return null;
               return (
-                <div key={cat} className="menu-full-category">
+                <div key={cat.key} className="menu-full-category">
                   <div className="menu-full-category-header">
-                    <h4>{cat}</h4>
+                    <h4>{cat.label}</h4>
                     <span className="pill subtle">{items.length} items</span>
                   </div>
                   <div className="menu-full-items">

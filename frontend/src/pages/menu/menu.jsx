@@ -7,12 +7,12 @@ import {
   formatCurrencyLocalized,
   localizeMenuItem
 } from "../../utils/menuI18n";
-import { applyCategoryOrder, loadCategoryOrder, orderIndex } from "../../utils/categoryOrder";
+import { orderIndex } from "../../utils/categoryOrder";
 import "./menu.css";
 
 export default function MenuPage() {
   const { language, setLanguage } = useMenuLanguage();
-  const { menu, loading, error, refresh, categoryOrder } = useMenu(language);
+  const { menu, loading, error, refresh, categories } = useMenu(language);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
   const [sortBy, setSortBy] = useState("featured");
@@ -28,9 +28,21 @@ export default function MenuPage() {
   );
 
   const categoryOptions = useMemo(() => {
+    if (categories?.length) {
+      return categories.map((cat) => ({
+        key: cat.key,
+        label: cat.labels?.[language] || cat.labels?.en || cat.key,
+        order: cat.order || 0
+      }));
+    }
     const list = buildCategoryList(localizedMenu, language);
-    return applyCategoryOrder(list, categoryOrder || []);
-  }, [localizedMenu, language, categoryOrder]);
+    return list;
+  }, [categories, localizedMenu, language]);
+
+  const categoryOrderKeys = useMemo(
+    () => (categories && categories.length ? categories.map((c) => c.key) : []),
+    [categories]
+  );
 
   const topCategories = useMemo(() => categoryOptions.slice(0, 6), [categoryOptions]);
 
@@ -71,8 +83,8 @@ export default function MenuPage() {
           return (a.displayName || "").localeCompare(b.displayName || "");
         case "featured":
         default: {
-          const idxA = orderIndex(a.category || "Uncategorized", categoryOrder);
-          const idxB = orderIndex(b.category || "Uncategorized", categoryOrder);
+          const idxA = orderIndex(a.category || "Uncategorized", categoryOrderKeys);
+          const idxB = orderIndex(b.category || "Uncategorized", categoryOrderKeys);
           if (idxA !== idxB) return idxA - idxB;
           return (a.displayCategory || "").localeCompare(b.displayCategory || "");
         }
@@ -80,7 +92,7 @@ export default function MenuPage() {
     });
 
     return sorted;
-  }, [localizedMenu, category, search, sortBy, categoryOrder]);
+  }, [localizedMenu, category, search, sortBy, categoryOrderKeys]);
 
   const groupedMenu = useMemo(() => {
     const map = new Map();
@@ -91,13 +103,13 @@ export default function MenuPage() {
     });
     const entries = Array.from(map.entries());
     entries.sort((a, b) => {
-      const idxA = orderIndex(a[0], categoryOrder);
-      const idxB = orderIndex(b[0], categoryOrder);
+      const idxA = orderIndex(a[0], categoryOrderKeys);
+      const idxB = orderIndex(b[0], categoryOrderKeys);
       if (idxA !== idxB) return idxA - idxB;
       return a[0].localeCompare(b[0]);
     });
     return entries;
-  }, [filteredMenu, categoryOrder]);
+  }, [filteredMenu, categoryOrderKeys]);
 
   const formatPrice = (value) => formatCurrencyLocalized(value, language);
 
@@ -275,6 +287,21 @@ export default function MenuPage() {
               <option value="price-desc">Price: high to low</option>
             </select>
           </div>
+          <div className="menu-v2__control">
+            <label>Language</label>
+            <div className="menu-v2__lang-toggle">
+              {SUPPORTED_LANGUAGES.map((lang) => (
+                <button
+                  key={lang.code}
+                  type="button"
+                  className={`menu-v2__btn ghost small ${language === lang.code ? "is-active" : ""}`}
+                  onClick={() => setLanguage(lang.code)}
+                >
+                  {lang.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </section>
 
         {showFilters ? (
@@ -324,6 +351,21 @@ export default function MenuPage() {
                     <option value="price-asc">Price: low to high</option>
                     <option value="price-desc">Price: high to low</option>
                   </select>
+                </div>
+                <div className="menu-v2__control">
+                  <label>Language</label>
+                  <div className="menu-v2__lang-toggle">
+                    {SUPPORTED_LANGUAGES.map((lang) => (
+                      <button
+                        key={lang.code}
+                        type="button"
+                        className={`menu-v2__btn ghost small ${language === lang.code ? "is-active" : ""}`}
+                        onClick={() => setLanguage(lang.code)}
+                      >
+                        {lang.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
               <div className="menu-v2__filter-actions">

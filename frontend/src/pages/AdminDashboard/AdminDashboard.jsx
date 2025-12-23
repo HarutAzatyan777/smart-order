@@ -108,7 +108,12 @@ export default function AdminDashboard() {
     editMenuCategoryHy,
     setEditMenuCategoryHy,
     editMenuDescriptionHy,
-    setEditMenuDescriptionHy
+    setEditMenuDescriptionHy,
+    categoryOrder,
+    savingCategoryOrder,
+    categoriesLoading,
+    createCategory,
+    deleteCategory
   } = useAdminMenu({ token, setError });
 
   const refreshAll = async () => {
@@ -485,6 +490,9 @@ export default function AdminDashboard() {
           onViewAllClick={() => navigate("/admin/menu")}
           categoryOrder={categoryOrder}
           savingCategoryOrder={savingCategoryOrder}
+          categoriesLoading={categoriesLoading}
+          createCategory={createCategory}
+          deleteCategory={deleteCategory}
         />
       </div>
     </div>

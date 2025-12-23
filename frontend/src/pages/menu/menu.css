@@ -191,6 +191,12 @@
   color: #e0f2fe;
 }
 
+.menu-v2__lang-toggle {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .menu-v2__controls {
   background: #ffffff;
   border-radius: 16px;
@@ -198,7 +204,7 @@
   border: 1px solid rgba(15, 23, 42, 0.08);
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.08);
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
 }
 

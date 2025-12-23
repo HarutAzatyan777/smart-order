@@ -70,10 +70,27 @@ const MenuPanel = forwardRef(function MenuPanel({
   language = "en",
   onLanguageChange,
   categoryOrder = [],
-  savingCategoryOrder = false
+  savingCategoryOrder = false,
+  categoriesLoading = false,
+  createCategory,
+  deleteCategory
 }, ref) {
+  const categoryOptions = categories.map((cat) =>
+    typeof cat === "string"
+      ? { key: cat, label: cat, hyLabel: cat }
+      : {
+          key: cat.key,
+          label: cat.labels?.[language] || cat.labels?.en || cat.key,
+          hyLabel: cat.labels?.hy || cat.labels?.en || cat.key
+        }
+  );
+  const categoryKeys = categoryOptions.map((c) => c.key);
+  const orderedKeys =
+    categoryOrder.length > 0
+      ? categoryOrder.filter((k) => categoryKeys.includes(k)).concat(categoryKeys.filter((k) => !categoryOrder.includes(k)))
+      : categoryKeys;
   const visibleCategories =
-    maxCategoryList === Infinity ? categories : categories.slice(0, maxCategoryList);
+    maxCategoryList === Infinity ? orderedKeys : orderedKeys.slice(0, maxCategoryList);
   const localizedMenu = useMemo(
     () =>
       filteredMenu.map((item) => ({
@@ -90,12 +107,27 @@ const MenuPanel = forwardRef(function MenuPanel({
     });
     return map;
   }, [localizedMenu]);
+  const categoryUsage = useMemo(() => {
+    const map = {};
+    localizedMenu.forEach(({ item, display }) => {
+      const key = item.category || "Uncategorized";
+      if (!map[key]) map[key] = [];
+      map[key].push(display.displayName || item.name || "Item");
+    });
+    return map;
+  }, [localizedMenu]);
+  const labelFor = (key) => categoryOptions.find((c) => c.key === key)?.label || categoryLabels[key] || key;
+  const hyLabelFor = (key) =>
+    categoryOptions.find((c) => c.key === key)?.hyLabel || categoryLabels[key] || key;
   const fileInputRef = useRef(null);
   const menuImageInputRef = useRef(null);
   const editImageInputRef = useRef(null);
   const [openCategories, setOpenCategories] = useState({});
   const [selectedCategory, setSelectedCategory] = useState("");
   const [categoryDraft, setCategoryDraft] = useState("");
+  const [categoryKeyInput, setCategoryKeyInput] = useState("");
+  const [categoryEnInput, setCategoryEnInput] = useState("");
+  const [categoryHyInput, setCategoryHyInput] = useState("");
   const handleFileChange = async (e) => {
     const file = e.target.files?.[0];
     await importMenuFile(file);
@@ -114,22 +146,36 @@ const MenuPanel = forwardRef(function MenuPanel({
   };
 
   useEffect(() => {
-    if (!categories.length) {
+    const keys = categoryOptions.map((c) => c.key);
+    if (!keys.length) {
       setSelectedCategory("");
       setCategoryDraft("");
       return;
     }
-    if (!selectedCategory || !categories.includes(selectedCategory)) {
-      setSelectedCategory(categories[0]);
-      setCategoryDraft(categories[0] || "");
+    if (!selectedCategory || !keys.includes(selectedCategory)) {
+      const first = categoryOptions[0] || {};
+      setSelectedCategory(first.key || "");
+      setCategoryDraft(first.label || first.key || "");
     }
-  }, [categories, selectedCategory]);
+  }, [selectedCategory, categoryOptions]);
 
   const categoryBusy = Boolean(categoryAction);
 
   const handleCategoryRename = () => {
     if (!selectedCategory || !categoryDraft.trim()) return;
-    onRenameCategory?.(selectedCategory, categoryDraft);
+    onRenameCategory?.(selectedCategory, categoryDraft, categoryHyInput);
+  };
+
+  const handleCategoryCreate = () => {
+    if (!categoryKeyInput.trim() || !categoryEnInput.trim()) return;
+    createCategory?.({
+      key: categoryKeyInput,
+      labelEn: categoryEnInput,
+      labelHy: categoryHyInput
+    });
+    setCategoryKeyInput("");
+    setCategoryEnInput("");
+    setCategoryHyInput("");
   };
 
   return (
@@ -234,19 +280,57 @@ const MenuPanel = forwardRef(function MenuPanel({
               Reorder how categories appear and rename them without editing every dish.
             </p>
           </div>
-          {categories.length === 0 ? (
-            <p className="muted small">Add a menu item to create your first category.</p>
+          <div className="category-rename-row">
+            <input
+              className="admin-input"
+              placeholder="Key (latin, unique)"
+              value={categoryKeyInput}
+              onChange={(e) => setCategoryKeyInput(e.target.value)}
+              disabled={categoryBusy}
+            />
+            <input
+              className="admin-input"
+              placeholder="Label (English)"
+              value={categoryEnInput}
+              onChange={(e) => setCategoryEnInput(e.target.value)}
+              disabled={categoryBusy}
+            />
+            <input
+              className="admin-input"
+              placeholder="Label (Armenian)"
+              value={categoryHyInput}
+              onChange={(e) => setCategoryHyInput(e.target.value)}
+              disabled={categoryBusy}
+            />
+            <button
+              type="button"
+              className="primary-btn"
+              onClick={handleCategoryCreate}
+              disabled={
+                !categoryKeyInput.trim() ||
+                !categoryEnInput.trim() ||
+                categoryBusy ||
+                categoriesLoading
+              }
+            >
+              Add category
+            </button>
+          </div>
+          {categoryOptions.length === 0 ? (
+            <p className="muted small">Add a category to get started.</p>
           ) : (
             <>
               <div className="category-manager-list">
-                {categories.map((cat, idx) => (
-                  <div key={cat} className="category-manager-row">
-                    <span className="category-label">{categoryLabels[cat] || cat}</span>
+                {orderedKeys.map((catKey, idx) => {
+                  const cat = categoryOptions.find((c) => c.key === catKey) || { key: catKey, label: catKey };
+                  return (
+                    <div key={cat.key} className="category-manager-row">
+                      <span className="category-label">{labelFor(cat.key)}</span>
                     <div className="category-manager-actions">
                       <button
                         type="button"
                         className="ghost-btn small"
-                        onClick={() => onMoveCategory?.(cat, -1)}
+                        onClick={() => onMoveCategory?.(cat.key, -1)}
                         disabled={!onMoveCategory || idx === 0 || categoryBusy || savingCategoryOrder}
                       >
                         Move up
@@ -254,30 +338,56 @@ const MenuPanel = forwardRef(function MenuPanel({
                       <button
                         type="button"
                         className="ghost-btn small"
-                        onClick={() => onMoveCategory?.(cat, 1)}
+                        onClick={() => onMoveCategory?.(cat.key, 1)}
                         disabled={
                           !onMoveCategory ||
-                          idx === categories.length - 1 ||
+                          idx === categoryOptions.length - 1 ||
                           categoryBusy ||
                           savingCategoryOrder
                         }
                       >
                         Move down
                       </button>
+                      {categoryUsage[cat.key]?.length ? (
+                        <span className="pill subtle small">
+                          {categoryUsage[cat.key].length} item{categoryUsage[cat.key].length > 1 ? "s" : ""}
+                        </span>
+                      ) : null}
+                      <button
+                        type="button"
+                        className="danger-btn small"
+                        onClick={() => {
+                          const items = categoryUsage[cat.key] || [];
+                          if (items.length) {
+                            window.alert(
+                              `Cannot delete: ${items.length} item(s) use this category.\n` +
+                                items.slice(0, 5).map((n, i) => `${i + 1}. ${n}`).join("\n") +
+                                (items.length > 5 ? `\n+${items.length - 5} more` : "")
+                            );
+                            return;
+                          }
+                          deleteCategory?.(cat.key);
+                        }}
+                        disabled={categoryBusy}
+                      >
+                        Delete
+                      </button>
                       <button
                         type="button"
                         className="ghost-btn small"
                         onClick={() => {
-                          setSelectedCategory(cat);
-                          setCategoryDraft(cat);
+                          setSelectedCategory(cat.key);
+                          setCategoryDraft(cat.label);
+                          setCategoryHyInput(cat.label);
                         }}
                         disabled={categoryBusy}
                       >
                         Edit
                       </button>
                     </div>
-                  </div>
-                ))}
+                    </div>
+                  );
+                })}
               </div>
               <div className="category-rename-row">
                 <select
@@ -285,13 +395,15 @@ const MenuPanel = forwardRef(function MenuPanel({
                   value={selectedCategory}
                   onChange={(e) => {
                     setSelectedCategory(e.target.value);
-                    setCategoryDraft(e.target.value);
+                    const lbl = labelFor(e.target.value);
+                    setCategoryDraft(lbl);
+                    setCategoryHyInput(lbl);
                   }}
-                  disabled={!categories.length || categoryBusy}
+                  disabled={!categoryOptions.length || categoryBusy}
                 >
-                  {categories.map((cat) => (
-                    <option key={cat} value={cat}>
-                      {categoryLabels[cat] || cat}
+                  {categoryOptions.map((cat) => (
+                    <option key={cat.key} value={cat.key}>
+                      {labelFor(cat.key)}
                     </option>
                   ))}
                 </select>
@@ -302,6 +414,13 @@ const MenuPanel = forwardRef(function MenuPanel({
                   onChange={(e) => setCategoryDraft(e.target.value)}
                   disabled={!selectedCategory || categoryBusy}
                 />
+                <input
+                  className="admin-input"
+                  placeholder="New Armenian name"
+                  value={categoryHyInput}
+                  onChange={(e) => setCategoryHyInput(e.target.value)}
+                  disabled={!selectedCategory || categoryBusy}
+                />
                 <button
                   type="button"
                   className="primary-btn"
@@ -309,7 +428,6 @@ const MenuPanel = forwardRef(function MenuPanel({
                   disabled={
                     !selectedCategory ||
                     !categoryDraft.trim() ||
-                    categoryDraft === selectedCategory ||
                     categoryBusy
                   }
                 >
@@ -343,12 +461,23 @@ const MenuPanel = forwardRef(function MenuPanel({
         </div>
         <div className="field">
           <label>Category</label>
-          <input
+          <select
             className="admin-input"
-            placeholder="Drinks, Pizza..."
             value={menuCategory}
-            onChange={(e) => setMenuCategory(e.target.value)}
-          />
+            onChange={(e) => {
+              const value = e.target.value;
+              setMenuCategory(value);
+              const hy = hyLabelFor(value);
+              setMenuCategoryHy(hy);
+            }}
+          >
+            <option value="">Select category</option>
+            {categoryOptions.map((cat) => (
+              <option key={cat.key} value={cat.key}>
+                {labelFor(cat.key)}
+              </option>
+            ))}
+          </select>
         </div>
         <div className="field">
           <label>Item name (Armenian)</label>
@@ -480,12 +609,22 @@ const MenuPanel = forwardRef(function MenuPanel({
                             onChange={(e) => setEditMenuPrice(e.target.value)}
                             placeholder="Price"
                           />
-                          <input
+                          <select
                             className="admin-input"
                             value={editMenuCategory}
-                            onChange={(e) => setEditMenuCategory(e.target.value)}
-                            placeholder="Category"
-                          />
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              setEditMenuCategory(value);
+                              setEditMenuCategoryHy(hyLabelFor(value));
+                            }}
+                          >
+                            <option value="">Select category</option>
+                            {categoryOptions.map((cat) => (
+                              <option key={cat.key} value={cat.key}>
+                                {labelFor(cat.key)}
+                              </option>
+                            ))}
+                          </select>
                           <input
                             className="admin-input"
                             value={editMenuNameHy}

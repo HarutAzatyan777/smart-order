@@ -1,0 +1,233 @@
+.waiter-select-page {
+  --waiter-bg: linear-gradient(145deg, #f7f9fc 0%, #eef2f7 100%);
+  --waiter-text: #0f172a;
+  --waiter-muted: #6b7280;
+  --waiter-card: #fff;
+  --waiter-card-border: #e5e7eb;
+  --waiter-card-shadow: 0 10px 30px rgba(15, 23, 42, 0.05);
+  --waiter-subtle: #f8fafc;
+  --waiter-input-border: #e2e8f0;
+  --waiter-info: #0ea5e9;
+  --waiter-info-bg: #e0f2fe;
+  --waiter-info-text: #0f4c81;
+  --waiter-info-border: #bae6fd;
+  --waiter-danger: #b91c1c;
+  --waiter-danger-border: #fecdd3;
+  --waiter-danger-bg: #fef2f2;
+  min-height: 100vh;
+  background: var(--waiter-bg);
+  padding: 28px 22px 40px;
+  color: var(--waiter-text);
+  font-family: "Inter", system-ui, -apple-system, sans-serif;
+  max-width: 1080px;
+  margin: 0 auto;
+}
+
+.order-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.eyebrow {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 11px;
+  color: var(--waiter-muted);
+}
+
+.page-title {
+  margin: 6px 0;
+  font-size: 30px;
+  font-weight: 700;
+}
+
+.muted {
+  color: var(--waiter-muted);
+}
+
+.waiter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--waiter-card);
+  border: 1px solid var(--waiter-input-border);
+  border-radius: 12px;
+  box-shadow: var(--waiter-card-shadow);
+  font-weight: 600;
+}
+
+.pill-label {
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--waiter-muted);
+  font-weight: 700;
+}
+
+.alert {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  margin-bottom: 14px;
+  font-size: 14px;
+}
+
+.alert.error {
+  background: var(--waiter-danger-bg);
+  border: 1px solid var(--waiter-danger-border);
+  color: var(--waiter-danger);
+}
+
+.table-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  justify-content: space-between;
+}
+
+.search-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.search-box input {
+  border: 1px solid var(--waiter-input-border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+  background: var(--waiter-subtle);
+}
+
+.toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ghost-btn {
+  border: 1px solid var(--waiter-input-border);
+  background: var(--waiter-subtle);
+  color: var(--waiter-text);
+  border-radius: 10px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+  min-width: 120px;
+}
+
+.ghost-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+}
+
+.link-btn {
+  background: none;
+  border: none;
+  color: var(--waiter-info);
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+}
+
+.panel {
+  background: var(--waiter-card);
+  border: 1px solid var(--waiter-card-border);
+  border-radius: 14px;
+  padding: 16px;
+  box-shadow: var(--waiter-card-shadow);
+}
+
+.empty-panel {
+  display: grid;
+  gap: 6px;
+}
+
+.empty-title {
+  margin: 0;
+  font-weight: 700;
+}
+
+.table-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+}
+
+.table-card {
+  border: 1px solid var(--waiter-card-border);
+  border-radius: 12px;
+  padding: 12px;
+  text-align: left;
+  background: var(--waiter-subtle);
+  display: grid;
+  gap: 6px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.table-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+  border-color: var(--waiter-input-border);
+}
+
+.table-card.is-disabled {
+  opacity: 0.6;
+  pointer-events: auto;
+  cursor: not-allowed;
+}
+
+.table-card.is-disabled:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+.table-number {
+  font-weight: 800;
+  font-size: 18px;
+}
+
+.table-label {
+  font-weight: 600;
+  color: var(--waiter-text);
+}
+
+.table-label.muted {
+  color: var(--waiter-muted);
+}
+
+.table-status {
+  font-size: 12px;
+  color: var(--waiter-muted);
+}
+
+@media (max-width: 720px) {
+  .order-header {
+    flex-direction: column;
+  }
+
+  .table-toolbar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

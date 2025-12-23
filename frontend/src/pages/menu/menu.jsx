@@ -287,21 +287,6 @@ export default function MenuPage() {
               <option value="price-desc">Price: high to low</option>
             </select>
           </div>
-          <div className="menu-v2__control">
-            <label>Language</label>
-            <div className="menu-v2__lang-toggle">
-              {SUPPORTED_LANGUAGES.map((lang) => (
-                <button
-                  key={lang.code}
-                  type="button"
-                  className={`menu-v2__btn ghost small ${language === lang.code ? "is-active" : ""}`}
-                  onClick={() => setLanguage(lang.code)}
-                >
-                  {lang.label}
-                </button>
-              ))}
-            </div>
-          </div>
         </section>
 
         {showFilters ? (

@@ -187,7 +187,7 @@ export default function WaiterHome() {
             <Link to="/waiter/menu" className="ghost-btn">
               Browse menu
             </Link>
-            <Link to="/waiter/create" className="primary-link">
+            <Link to="/waiter/select-table" className="primary-link">
               New order
             </Link>
             <button type="button" className="danger-btn" onClick={handleLogout}>
@@ -266,7 +266,7 @@ export default function WaiterHome() {
             Adjust the filters or create a new table order.
           </p>
           <div className="header-buttons">
-            <Link to="/waiter/create" className="primary-link">
+            <Link to="/waiter/select-table" className="primary-link">
               Create order
             </Link>
             <Link to="/waiter/menu" className="ghost-btn">

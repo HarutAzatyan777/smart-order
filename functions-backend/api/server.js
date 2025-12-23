@@ -7,6 +7,7 @@ const menuRouter = require('./routes/menu');
 const kitchenRouter = require('./routes/kitchen');
 const waiterRouter = require('./routes/waiter');
 const adminRouter = require('./routes/admin');
+const tablesRouter = require('./routes/tables');
 
 const app = express();
 
@@ -30,6 +31,7 @@ app.use('/orders', ordersRouter);
 app.use('/menu', menuRouter);
 app.use('/kitchen', kitchenRouter);
 app.use('/waiter', waiterRouter);
+app.use('/tables', tablesRouter);
 
 // Admin
 app.use('/admin', adminRouter);

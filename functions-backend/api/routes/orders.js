@@ -37,23 +37,35 @@ async function logHistory(orderId, action, data = {}) {
 // ===============================
 router.post('/', async (req, res) => {
   try {
-    const { table, waiterName, items, notes } = req.body;
+    const { tableId, waiterName, items, notes } = req.body;
 
-    if (!table || !items || items.length === 0) {
-      return res.status(400).send({ error: "Missing table or items" });
+    if (!tableId) {
+      return res.status(400).send({ error: "Table is required" });
+    }
+    if (!items || items.length === 0) {
+      return res.status(400).send({ error: "Missing items" });
+    }
+
+    const tableDoc = await db.collection("tables").doc(tableId).get();
+    if (!tableDoc.exists || tableDoc.data().active === false) {
+      return res.status(400).send({ error: "Table not found or inactive" });
+    }
+
+    const number = tableDoc.data().number;
+    if (!number) {
+      return res.status(400).send({ error: "Table is missing a number" });
     }
 
     const orderData = {
-      table,
+      table: number,
+      tableNumber: number,
+      tableId,
       waiterName: waiterName || "Waiter",
       items,
       notes: notes || "",
       status: "new",
 
-      // FIX: createdAt MUST be at root level for Firestore queries
       createdAt: FieldValue.serverTimestamp(),
-
-      // Other timestamps go inside this object (sorting is not done here)
       timestamps: {
         acceptedAt: null,
         preparingAt: null,
@@ -67,7 +79,8 @@ router.post('/', async (req, res) => {
     const docRef = await db.collection("orders").add(orderData);
 
     await logHistory(docRef.id, "order_created", {
-      table,
+      table: number,
+      tableId,
       waiterName
     });
 

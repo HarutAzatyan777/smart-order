@@ -9,6 +9,7 @@ import MenuPage from "../pages/menu/menu";
 import WaiterLogin from "../pages/waiter/WaiterLogin";
 import WaiterHome from "../pages/waiter/WaiterHome";
 import WaiterOrderCreate from "../pages/waiter/WaiterOrderCreate";
+import WaiterSelectTable from "../pages/waiter/WaiterSelectTable";
 
 // KITCHEN
 import KitchenDashboard from "../pages/kitchen/KitchenDashboard";
@@ -49,6 +50,7 @@ function RouterShell() {
         <Route path="/waiter" element={<WaiterLogin />} />
         <Route path="/waiter/login" element={<WaiterLogin />} />
         <Route path="/waiter/home" element={<WaiterHome />} />
+        <Route path="/waiter/select-table" element={<WaiterSelectTable />} />
         <Route path="/waiter/create" element={<WaiterOrderCreate />} />
         <Route path="/waiter/menu" element={<WaiterMenu />} />
 

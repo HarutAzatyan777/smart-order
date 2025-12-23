@@ -94,7 +94,7 @@ export default function WaiterMenu() {
           <button className="ghost-btn" onClick={refresh}>
             Refresh
           </button>
-          <Link to="/waiter/create" className="primary-link">
+          <Link to="/waiter/select-table" className="primary-link">
             Go to order form
           </Link>
         </div>
@@ -192,8 +192,7 @@ export default function WaiterMenu() {
           </div>
 
           <p className="muted note">
-            Ready to send? Use the order form to select a table and dispatch to
-            the kitchen.
+            Ready to send? Start from the table selection page, then complete the order form.
           </p>
         </aside>
       </div>

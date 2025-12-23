@@ -1,8 +1,9 @@
-import { useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { createOrder } from "../../api/ordersApi";
 import useMenu from "../../hooks/useMenu";
 import useMenuLanguage from "../../hooks/useMenuLanguage";
+import useTables from "../../hooks/useTables";
 import {
   SUPPORTED_LANGUAGES,
   formatCurrencyLocalized,
@@ -11,10 +12,18 @@ import {
 import "./WaiterOrderCreate.css";
 
 export default function WaiterOrderCreate() {
+  const location = useLocation();
   const { language, setLanguage } = useMenuLanguage();
   const { menu, loading: menuLoading, error: menuError, refresh } = useMenu(language);
+  const { tables, loading: tablesLoading, error: tablesError, refresh: refreshTables } = useTables();
 
-  const [table, setTable] = useState("");
+  const initialTableId =
+    location.state?.tableId ||
+    sessionStorage.getItem("selectedTableId") ||
+    localStorage.getItem("selectedTableId") ||
+    "";
+
+  const [tableId, setTableId] = useState(initialTableId);
   const [notes, setNotes] = useState("");
   const [search, setSearch] = useState("");
   const [cart, setCart] = useState({});
@@ -25,10 +34,37 @@ export default function WaiterOrderCreate() {
   const navigate = useNavigate();
 
   const waiterName = localStorage.getItem("waiterName") || "Unknown waiter";
+  const activeTables = tables.filter((t) => t.active !== false);
+  const selectedTable = activeTables.find((t) => t.id === tableId);
   const localizedMenu = useMemo(
     () => menu.map((item) => localizeMenuItem(item, language)),
     [menu, language]
   );
+
+  useEffect(() => {
+    if (location.state?.tableId) {
+      setTableId(location.state.tableId);
+      sessionStorage.setItem("selectedTableId", location.state.tableId);
+      localStorage.setItem("selectedTableId", location.state.tableId);
+    }
+  }, [location.state]);
+
+  useEffect(() => {
+    if (!tableId && !tablesLoading) {
+      navigate("/waiter/select-table", { replace: true });
+    }
+  }, [tableId, tablesLoading, navigate]);
+
+  useEffect(() => {
+    if (tableId && !tablesLoading && !selectedTable) {
+      sessionStorage.removeItem("selectedTableId");
+      localStorage.removeItem("selectedTableId");
+      navigate("/waiter/select-table", {
+        replace: true,
+        state: { error: "Selected table is unavailable. Please choose another table." }
+      });
+    }
+  }, [tableId, selectedTable, tablesLoading, navigate]);
 
   const getItemKey = (item) => item?.id || item?.sku || item?.name;
 
@@ -113,9 +149,9 @@ export default function WaiterOrderCreate() {
       return;
     }
 
-    const tableNumber = Number(table);
-    if (!tableNumber || tableNumber <= 0) {
-      setSubmitError("Please enter a valid table number.");
+    if (!selectedTable) {
+      setSubmitError("Please select a table first.");
+      navigate("/waiter/select-table");
       return;
     }
 
@@ -125,7 +161,9 @@ export default function WaiterOrderCreate() {
     }
 
     const payload = {
-      table: tableNumber,
+      tableId: selectedTable.id,
+      tableNumber: selectedTable.number,
+      table: selectedTable.number,
       notes: notes.trim(),
       items: cartItems.map((item) => ({
         name: item.name,
@@ -139,6 +177,8 @@ export default function WaiterOrderCreate() {
     try {
       setSubmitting(true);
       await createOrder(payload);
+      sessionStorage.removeItem("selectedTableId");
+      localStorage.removeItem("selectedTableId");
       navigate("/waiter/home");
     } catch (err) {
       console.error("Create order error:", err);
@@ -150,8 +190,7 @@ export default function WaiterOrderCreate() {
     }
   };
 
-  const canSubmit =
-    !submitting && table && Number(table) > 0 && cartItems.length > 0;
+  const canSubmit = !submitting && Boolean(selectedTable) && cartItems.length > 0;
 
   const formatPrice = (value) => formatCurrencyLocalized(value, language);
 
@@ -178,12 +217,43 @@ export default function WaiterOrderCreate() {
         </div>
       </header>
 
-      {(submitError || menuError) && (
+      {selectedTable ? (
+        <div className="selected-table-banner">
+          <div>
+            <p className="eyebrow soft">Table selected</p>
+            <strong>Table #{selectedTable.number}</strong>
+            {selectedTable.label ? <span className="muted"> - {selectedTable.label}</span> : null}
+          </div>
+          <div className="banner-actions">
+            <button
+              type="button"
+              className="ghost-btn"
+              onClick={() => navigate("/waiter/select-table")}
+            >
+              Change table
+            </button>
+            <button
+              type="button"
+              className="ghost-btn"
+              onClick={refreshTables}
+              disabled={tablesLoading}
+            >
+              {tablesLoading ? "Checking..." : "Refresh tables"}
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {(submitError || menuError || tablesError) && (
         <div className="alert error">
-          <span>{submitError || menuError}</span>
+          <span>{submitError || menuError || tablesError}</span>
           {menuError ? (
             <button onClick={refresh} className="link-btn">
               Retry loading menu
+            </button>
+          ) : tablesError ? (
+            <button className="link-btn" onClick={refreshTables} type="button">
+              Retry loading tables
             </button>
           ) : null}
         </div>
@@ -201,41 +271,30 @@ export default function WaiterOrderCreate() {
         <section className="panel menu-panel">
           <div className="panel-heading">
             <div className="field">
-              <label>Table</label>
+              <label>Search menu</label>
               <input
-                type="number"
-                min="1"
-                placeholder="Table number"
-                value={table}
-                onChange={(e) => setTable(e.target.value)}
+                type="search"
+                placeholder="Type dish or keyword"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
               />
             </div>
-
-        <div className="field">
-          <label>Search menu</label>
-          <input
-            type="search"
-            placeholder="Type dish or keyword"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
-        <div className="field">
-          <label>Language</label>
-          <div className="language-toggle">
-            {SUPPORTED_LANGUAGES.map((lang) => (
-              <button
-                key={lang.code}
-                type="button"
-                className={`ghost-btn ${language === lang.code ? "is-active" : ""}`}
-                onClick={() => setLanguage(lang.code)}
-              >
-                {lang.label}
-              </button>
-            ))}
+            <div className="field">
+              <label>Language</label>
+              <div className="language-toggle">
+                {SUPPORTED_LANGUAGES.map((lang) => (
+                  <button
+                    key={lang.code}
+                    type="button"
+                    className={`ghost-btn ${language === lang.code ? "is-active" : ""}`}
+                    onClick={() => setLanguage(lang.code)}
+                  >
+                    {lang.label}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
 
           {menuLoading ? (
             <div className="skeleton">Loading menu...</div>
@@ -355,7 +414,16 @@ export default function WaiterOrderCreate() {
           <div className="summary-heading">
             <div>
               <p className="eyebrow">Order summary</p>
-              <h2>Table {table || "-"}</h2>
+              <h2>
+                {selectedTable
+                  ? selectedTable.label || `Table ${selectedTable.number}`
+                  : "Table -"}
+              </h2>
+              {selectedTable ? (
+                <p className="muted small">Table #{selectedTable.number}</p>
+              ) : (
+                <p className="muted small">No table selected</p>
+              )}
             </div>
             {cartItems.length > 0 && (
               <button className="link-btn" onClick={clearCart}>
@@ -364,17 +432,17 @@ export default function WaiterOrderCreate() {
             )}
           </div>
 
-      {cartItems.length === 0 ? (
-        <div className="empty-state">No items added yet.</div>
-      ) : (
-        <div className="cart-list">
-          {cartItems.map((item) => (
-            <div key={item.id} className="cart-row">
-              <div>
-                <p className="cart-title">{item.displayName || item.name}</p>
-                <p className="muted small">
-                  {formatPrice(item.price)} each &bull;{" "}
-                  {formatPrice((Number(item.price) || 0) * (item.qty || 0))} total
+          {cartItems.length === 0 ? (
+            <div className="empty-state">No items added yet.</div>
+          ) : (
+            <div className="cart-list">
+              {cartItems.map((item) => (
+                <div key={item.id} className="cart-row">
+                  <div>
+                    <p className="cart-title">{item.displayName || item.name}</p>
+                    <p className="muted small">
+                      {formatPrice(item.price)} each &bull;{" "}
+                      {formatPrice((Number(item.price) || 0) * (item.qty || 0))} total
                     </p>
                   </div>
 
@@ -466,6 +534,24 @@ export default function WaiterOrderCreate() {
               </button>
             </div>
           </div>
+        </div>
+      ) : null}
+
+      {cartItems.length > 0 ? (
+        <div className="mobile-submit-bar">
+          <div>
+            <p className="muted small">
+              {selectedTable ? `Table #${selectedTable.number}` : "Select a table"}
+            </p>
+            <strong>{formatPrice(subtotal)}</strong>
+          </div>
+          <button
+            className="primary-btn"
+            onClick={handleSubmit}
+            disabled={!canSubmit}
+          >
+            {submitting ? "Sending..." : "Send to Kitchen"}
+          </button>
         </div>
       ) : null}
     </div>

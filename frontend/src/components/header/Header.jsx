@@ -74,7 +74,7 @@ export default function Header() {
 
           <div className="header-actions">
             <ThemeToggle />
-            <Link to="/waiter/create" className="action-btn">
+            <Link to="/waiter/select-table" className="action-btn">
               Create order
             </Link>
             {/* <Link to="/admin/login" className="action-btn ghost">

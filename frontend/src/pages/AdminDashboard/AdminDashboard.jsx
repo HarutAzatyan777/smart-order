@@ -7,6 +7,7 @@ import StatCard from "./components/StatCard";
 import WaitersPanel from "./components/WaitersPanel";
 import MenuPanel from "./components/MenuPanel";
 import OrdersPanel from "./components/OrdersPanel";
+import TablesPanel from "./components/TablesPanel";
 import {
   ACTIVE_STATUSES,
   CLOSED_STATUSES,
@@ -27,23 +28,28 @@ export default function AdminDashboard() {
 
   const WAITER_API = apiUrl("admin/waiters");
   const ORDERS_API = apiUrl("admin/orders");
+  const TABLES_API = apiUrl("admin/tables");
 
   const token = localStorage.getItem("adminToken");
 
   const [waiters, setWaiters] = useState([]);
   const [orders, setOrders] = useState([]);
+  const [tables, setTables] = useState([]);
 
   const [name, setName] = useState("");
   const [pin, setPin] = useState("");
 
   const [orderSearch, setOrderSearch] = useState("");
   const [orderFilter, setOrderFilter] = useState("active");
+  const [tableNumberInput, setTableNumberInput] = useState("");
+  const [tableLabelInput, setTableLabelInput] = useState("");
 
   const [error, setError] = useState("");
   const [loading, setLoading] = useState({
     waiters: false,
     orders: false,
-    refresh: false
+    refresh: false,
+    tables: false
   });
   const [waiterAction, setWaiterAction] = useState(false);
   const [orderActionId, setOrderActionId] = useState("");
@@ -118,7 +124,7 @@ export default function AdminDashboard() {
 
   const refreshAll = async () => {
     setLoading((prev) => ({ ...prev, refresh: true }));
-    await Promise.all([loadWaiters(), loadMenu(), loadOrders()]);
+    await Promise.all([loadWaiters(), loadMenu(), loadOrders(), loadTables()]);
     setLoading((prev) => ({ ...prev, refresh: false }));
   };
 
@@ -191,6 +197,22 @@ export default function AdminDashboard() {
     }
   };
 
+  const loadTables = async () => {
+    if (!token) return;
+    setLoading((prev) => ({ ...prev, tables: true }));
+    try {
+      const res = await fetchJson(TABLES_API, withAuth(), "Cannot load tables");
+      const list = Array.isArray(res?.tables) ? res.tables : [];
+      setTables(list);
+    } catch (err) {
+      console.error(err);
+      setTables([]);
+      setError(err.message || "Cannot load tables");
+    } finally {
+      setLoading((prev) => ({ ...prev, tables: false }));
+    }
+  };
+
   // ========================= WAITERS ========================= //
 
   const addWaiter = async () => {
@@ -236,6 +258,70 @@ export default function AdminDashboard() {
       setError(err.message || "Could not delete waiter");
     } finally {
       setWaiterAction(false);
+    }
+  };
+
+  // ========================= TABLES ========================= //
+
+  const createTable = async () => {
+    const num = Number(tableNumberInput);
+    if (!num || num <= 0 || !tableLabelInput.trim()) {
+      setError("Table number and label required");
+      return;
+    }
+    try {
+      setError("");
+      await fetchJson(
+        TABLES_API,
+        withAuth({
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ number: num, label: tableLabelInput.trim(), active: true })
+        }),
+        "Could not create table"
+      );
+      setTableNumberInput("");
+      setTableLabelInput("");
+      loadTables();
+    } catch (err) {
+      console.error(err);
+      setError(err.message || "Could not create table");
+    }
+  };
+
+  const toggleTableActive = async (table) => {
+    try {
+      setError("");
+      await fetchJson(
+        `${TABLES_API}/${table.id}`,
+        withAuth({
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ active: table.active === false })
+        }),
+        "Could not update table"
+      );
+      loadTables();
+    } catch (err) {
+      console.error(err);
+      setError(err.message || "Could not update table");
+    }
+  };
+
+  const deleteTable = async (table) => {
+    const label = table?.label || `Table ${table?.number}`;
+    if (!window.confirm(`Delete ${label}?`)) return;
+    try {
+      setError("");
+      await fetchJson(
+        `${TABLES_API}/${table.id}`,
+        withAuth({ method: "DELETE" }),
+        "Could not delete table"
+      );
+      loadTables();
+    } catch (err) {
+      console.error(err);
+      setError(err.message || "Could not delete table");
     }
   };
 
@@ -425,7 +511,19 @@ export default function AdminDashboard() {
         filteredMenu={filteredMenu}
       />
       <div className="panel-grid">
-      
+        <TablesPanel
+          tables={tables}
+          loading={loading.tables}
+          error=""
+          formNumber={tableNumberInput}
+          setFormNumber={setTableNumberInput}
+          formLabel={tableLabelInput}
+          setFormLabel={setTableLabelInput}
+          onCreate={createTable}
+          onToggleActive={toggleTableActive}
+          onDelete={deleteTable}
+          onReload={loadTables}
+        />
 
         <MenuPanel
           ref={menuPanelRef}

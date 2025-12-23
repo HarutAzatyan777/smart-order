@@ -10,6 +10,7 @@ import {
   localizeMenuItem
 } from "../../utils/menuI18n";
 import "./WaiterOrderCreate.css";
+import "../menu/menu.css";
 
 export default function WaiterOrderCreate() {
   const location = useLocation();
@@ -30,6 +31,8 @@ export default function WaiterOrderCreate() {
   const [submitError, setSubmitError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [modalItem, setModalItem] = useState(null);
+  const [isSummaryOpen, setIsSummaryOpen] = useState(false);
+  const [categoryFilter, setCategoryFilter] = useState("all");
 
   const navigate = useNavigate();
 
@@ -40,6 +43,14 @@ export default function WaiterOrderCreate() {
     () => menu.map((item) => localizeMenuItem(item, language)),
     [menu, language]
   );
+  const categoryOptions = useMemo(() => {
+    const set = new Set();
+    localizedMenu.forEach((item) => {
+      const key = item.category || item.displayCategory || "Uncategorized";
+      set.add(key);
+    });
+    return ["all", ...Array.from(set)];
+  }, [localizedMenu]);
 
   useEffect(() => {
     if (location.state?.tableId) {
@@ -78,9 +89,13 @@ export default function WaiterOrderCreate() {
         item.displayDescription?.toLowerCase() || item.description?.toLowerCase() || "";
       const cat =
         item.displayCategory?.toLowerCase() || item.category?.toLowerCase() || "";
-      return name.includes(term) || desc.includes(term) || cat.includes(term);
+      const matchesSearch = name.includes(term) || desc.includes(term) || cat.includes(term);
+      const matchesCategory =
+        categoryFilter === "all" ||
+        (item.category || item.displayCategory || "Uncategorized") === categoryFilter;
+      return matchesSearch && matchesCategory;
     });
-  }, [localizedMenu, search]);
+  }, [localizedMenu, search, categoryFilter]);
 
   const cartItems = useMemo(() => Object.values(cart), [cart]);
   const totalQty = useMemo(
@@ -194,6 +209,92 @@ export default function WaiterOrderCreate() {
 
   const formatPrice = (value) => formatCurrencyLocalized(value, language);
 
+  const renderSummaryContent = () => (
+    <>
+      <div className="summary-heading">
+        <div>
+          <p className="eyebrow">Order summary</p>
+          <h2>
+            {selectedTable
+              ? selectedTable.label || `Table ${selectedTable.number}`
+              : "Table -"}
+          </h2>
+          {selectedTable ? (
+            <p className="muted small">Table #{selectedTable.number}</p>
+          ) : (
+            <p className="muted small">No table selected</p>
+          )}
+        </div>
+        {cartItems.length > 0 && (
+          <button className="link-btn" onClick={clearCart}>
+            Clear
+          </button>
+        )}
+      </div>
+
+      {cartItems.length === 0 ? (
+        <div className="empty-state">No items added yet.</div>
+      ) : (
+        <div className="cart-list">
+          {cartItems.map((item) => (
+            <div key={item.id} className="cart-row">
+              <div>
+                <p className="cart-title">{item.displayName || item.name}</p>
+                <p className="muted small">
+                  {formatPrice(item.price)} each &bull;{" "}
+                  {formatPrice((Number(item.price) || 0) * (item.qty || 0))} total
+                </p>
+              </div>
+
+              <div className="cart-actions">
+                <div className="qty-chip small">
+                  <button onClick={() => decreaseQty(item.id)}>-</button>
+                  <span>{item.qty}</span>
+                  <button onClick={() => addToCart(item)}>+</button>
+                </div>
+                <button
+                  className="icon-btn"
+                  onClick={() => removeFromCart(item.id)}
+                >
+                  Remove
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="field">
+        <label>Notes (optional)</label>
+        <textarea
+          rows="3"
+          placeholder="Allergies, timing, or other details"
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+        />
+      </div>
+
+      <div className="totals">
+        <div>
+          <span className="muted">Items</span>
+          <strong>{totalQty}</strong>
+        </div>
+        <div>
+          <span className="muted">Total</span>
+          <strong>{formatPrice(subtotal)}</strong>
+        </div>
+      </div>
+
+      <button
+        className="primary-btn"
+        onClick={handleSubmit}
+        disabled={!canSubmit}
+      >
+        {submitting ? "Sending..." : "Send to Kitchen"}
+      </button>
+    </>
+  );
+
   return (
     <div className="order-create-page">
       <header className="order-header">
@@ -268,25 +369,49 @@ export default function WaiterOrderCreate() {
       ) : null}
 
       <div className="order-grid">
-        <section className="panel menu-panel">
-          <div className="panel-heading">
-            <div className="field">
-              <label>Search menu</label>
+        <section className="panel menu-panel waiter-menu-v2 menu-v2">
+          <div className="waiter-menu-v2__controls menu-v2__controls">
+            <div className="waiter-menu-v2__control menu-v2__control">
+              <label>Search dishes</label>
               <input
                 type="search"
-                placeholder="Type dish or keyword"
+                placeholder="Type a dish, ingredient, or category"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
+              {search ? (
+                <button
+                  className="waiter-menu-v2__text-btn menu-v2__text-btn"
+                  type="button"
+                  onClick={() => setSearch("")}
+                >
+                  Clear
+                </button>
+              ) : null}
             </div>
-            <div className="field">
+            <div className="waiter-menu-v2__control menu-v2__control">
+              <label>Category</label>
+              <select
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value)}
+              >
+                {categoryOptions.map((cat) => (
+                  <option key={cat} value={cat}>
+                    {cat === "all" ? "All categories" : cat}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="waiter-menu-v2__control menu-v2__control">
               <label>Language</label>
-              <div className="language-toggle">
+              <div className="waiter-menu-v2__lang-toggle menu-v2__lang-toggle">
                 {SUPPORTED_LANGUAGES.map((lang) => (
                   <button
                     key={lang.code}
                     type="button"
-                    className={`ghost-btn ${language === lang.code ? "is-active" : ""}`}
+                    className={`waiter-menu-v2__btn menu-v2__btn ghost small ${
+                      language === lang.code ? "is-active" : ""
+                    }`}
                     onClick={() => setLanguage(lang.code)}
                   >
                     {lang.label}
@@ -294,24 +419,56 @@ export default function WaiterOrderCreate() {
                 ))}
               </div>
             </div>
-          </div>
-
-          {menuLoading ? (
-            <div className="skeleton">Loading menu...</div>
-          ) : filteredMenu.length === 0 ? (
-            <div className="empty-state">
-              No items match your search.
-              <div className="empty-actions">
-                <button className="link-btn" onClick={() => setSearch("")}>
-                  Clear search
-                </button>
-                <button className="link-btn" onClick={refresh}>
+            <div className="waiter-menu-v2__control menu-v2__control">
+              <label>Actions</label>
+              <div className="waiter-menu-v2__lang-toggle menu-v2__lang-toggle">
+                <button
+                  className="waiter-menu-v2__btn menu-v2__btn ghost small"
+                  type="button"
+                  onClick={refresh}
+                >
                   Reload menu
                 </button>
               </div>
             </div>
+          </div>
+
+          {menuLoading ? (
+            <div className="waiter-menu-v2__skeleton menu-v2__skeleton">
+              <div className="waiter-menu-v2__sk-grid menu-v2__sk-grid">
+                {Array.from({ length: 6 }).map((_, idx) => (
+                  <div className="waiter-menu-v2__sk-card menu-v2__sk-card" key={idx}>
+                    <div className="waiter-menu-v2__sk-image menu-v2__sk-image shimmer" />
+                    <div className="waiter-menu-v2__sk-line menu-v2__sk-line shimmer wide" />
+                    <div className="waiter-menu-v2__sk-line menu-v2__sk-line shimmer" />
+                    <div className="waiter-menu-v2__sk-pill menu-v2__sk-pill shimmer" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : filteredMenu.length === 0 ? (
+            <div className="waiter-menu-v2__empty menu-v2__empty">
+              <h3>No dishes match this search.</h3>
+              <p className="waiter-menu-v2__text menu-v2__text">
+                Try another keyword or reload the menu.
+              </p>
+              <div className="waiter-menu-v2__empty-actions menu-v2__empty-actions">
+                <button
+                  className="waiter-menu-v2__btn menu-v2__btn primary"
+                  onClick={() => setSearch("")}
+                >
+                  Clear search
+                </button>
+                <button
+                  className="waiter-menu-v2__btn menu-v2__btn ghost"
+                  onClick={refresh}
+                >
+                  Reload
+                </button>
+              </div>
+            </div>
           ) : (
-            <div className="menu-grid">
+            <div className="waiter-menu-v2__grid menu-v2__grid">
               {filteredMenu.map((item, idx) => {
                 const itemKey = getItemKey(item) || String(idx);
                 const hasImage = Boolean(item.imageUrl);
@@ -323,85 +480,106 @@ export default function WaiterOrderCreate() {
                 return (
                   <article
                     key={itemKey}
-                    className={`menu-card ${hasImage ? "has-image" : "no-image"} ${
+                    className={[
+                      "waiter-menu-v2__card",
+                      "menu-v2__card",
+                      hasImage ? "has-image" : "no-image",
                       unavailable ? "is-disabled" : ""
-                    }`}
+                    ].join(" ")}
                     onClick={() => setModalItem({ ...item, itemKey })}
                   >
-                    {hasImage ? (
-                      <div className="menu-card-image">
-                        <img src={item.imageUrl} alt={displayName || "Menu item"} />
-                      </div>
-                    ) : null}
+                    <div
+                      className={[
+                        "waiter-menu-v2__card-image",
+                        "menu-v2__card-image",
+                        hasImage ? "" : "is-placeholder"
+                      ]
+                        .filter(Boolean)
+                        .join(" ")}
+                    >
+                      {hasImage ? (
+                        <img src={item.imageUrl} alt={displayName || "Menu item"} loading="lazy" />
+                      ) : null}
+                    </div>
 
-                    <div className="menu-card-body">
-                      <div className="menu-card-top">
-                        <div className="menu-card-title">
+                    <div className="waiter-menu-v2__card-body menu-v2__card-body">
+                      <div className="waiter-menu-v2__card-top menu-v2__card-top">
+                        <div>
                           <h3>{displayName}</h3>
                           {displayCategory ? (
-                            <span className="pill">{displayCategory}</span>
+                            <span className="waiter-menu-v2__pill menu-v2__pill subtle">
+                              {displayCategory}
+                            </span>
                           ) : null}
                           {item.sku ? (
-                            <span className="pill ghost">SKU: {item.sku}</span>
+                            <span className="waiter-menu-v2__pill menu-v2__pill subtle">
+                              SKU: {item.sku}
+                            </span>
                           ) : null}
-                          {unavailable ? <span className="pill warning">Unavailable</span> : null}
+                          {unavailable ? (
+                            <span className="waiter-menu-v2__pill menu-v2__pill alert">
+                              Unavailable
+                            </span>
+                          ) : null}
                         </div>
-                        <span className="price-tag">{formatPrice(item.price)}</span>
+                        <span className="waiter-menu-v2__price menu-v2__price">
+                          {formatPrice(item.price)}
+                        </span>
                       </div>
 
-                      {displayDescription ? <p className="muted">{displayDescription}</p> : null}
-                      {item.notes ? <p className="muted small">Notes: {item.notes}</p> : null}
+                      {displayDescription ? (
+                        <p className="waiter-menu-v2__text menu-v2__text">{displayDescription}</p>
+                      ) : (
+                        <p className="waiter-menu-v2__text menu-v2__text muted">
+                          No description provided.
+                        </p>
+                      )}
+                      {item.notes ? (
+                        <p className="waiter-menu-v2__text menu-v2__text muted">
+                          Notes: {item.notes}
+                        </p>
+                      ) : null}
 
-                      <div className="meta-row">
+                      <div className="waiter-menu-v2__meta menu-v2__meta">
                         {item.prepTime ? (
-                          <span className="pill ghost">Prep: {item.prepTime}</span>
+                          <span className="waiter-menu-v2__pill menu-v2__pill">
+                            Prep: {item.prepTime}
+                          </span>
                         ) : null}
                         {item.spiceLevel ? (
-                          <span className="pill ghost">Spice: {item.spiceLevel}</span>
+                          <span className="waiter-menu-v2__pill menu-v2__pill warm">
+                            Spice: {item.spiceLevel}
+                          </span>
                         ) : null}
                         {listify(item.ingredients) ? (
-                          <span className="pill light">
-                            Ingredients: {listify(item.ingredients)}
+                          <span className="waiter-menu-v2__pill menu-v2__pill">
+                            {listify(item.ingredients)}
                           </span>
                         ) : null}
                       </div>
 
-                      {listify(item.allergens) ? (
-                        <p className="muted small warning-text">
-                          Allergens: {listify(item.allergens)}
-                        </p>
-                      ) : null}
-
-                      {listify(item.addons) ? (
-                        <p className="muted small">Add-ons: {listify(item.addons)}</p>
-                      ) : null}
-
-                      {listify(item.variants) ? (
-                        <p className="muted small">Variants: {listify(item.variants)}</p>
-                      ) : null}
-                    </div>
-
-                    <div className="menu-actions">
-                      {cart[itemKey]?.qty ? (
-                        <div className="qty-chip">
-                          <button onClick={(e) => { e.stopPropagation(); decreaseQty(itemKey); }}>-</button>
-                          <span>{cart[itemKey].qty}</span>
+                      <div className="waiter-menu-v2__actions menu-v2__actions">
+                        {cart[itemKey]?.qty ? (
+                          <div className="qty-chip small">
+                            <button onClick={(e) => { e.stopPropagation(); decreaseQty(itemKey); }}>-</button>
+                            <span>{cart[itemKey].qty}</span>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); addToCart(item); }}
+                              disabled={unavailable}
+                            >
+                              +
+                            </button>
+                          </div>
+                        ) : (
                           <button
+                            className="waiter-menu-v2__btn menu-v2__btn primary small"
                             onClick={(e) => { e.stopPropagation(); addToCart(item); }}
                             disabled={unavailable}
                           >
-                            +
+                            {unavailable ? "Out of stock" : "Add to order"}
                           </button>
-                        </div>
-                      ) : (
-                        <button
-                          className="ghost-btn"
-                          onClick={(e) => { e.stopPropagation(); addToCart(item); }}
-                          disabled={unavailable}
-                        >
-                          {unavailable ? "Out of stock" : "Add to order"}
-                        </button>
-                      )}
+                        )}
+                      </div>
                     </div>
                   </article>
                 );
@@ -409,90 +587,6 @@ export default function WaiterOrderCreate() {
             </div>
           )}
         </section>
-
-        <aside className="panel summary-panel">
-          <div className="summary-heading">
-            <div>
-              <p className="eyebrow">Order summary</p>
-              <h2>
-                {selectedTable
-                  ? selectedTable.label || `Table ${selectedTable.number}`
-                  : "Table -"}
-              </h2>
-              {selectedTable ? (
-                <p className="muted small">Table #{selectedTable.number}</p>
-              ) : (
-                <p className="muted small">No table selected</p>
-              )}
-            </div>
-            {cartItems.length > 0 && (
-              <button className="link-btn" onClick={clearCart}>
-                Clear
-              </button>
-            )}
-          </div>
-
-          {cartItems.length === 0 ? (
-            <div className="empty-state">No items added yet.</div>
-          ) : (
-            <div className="cart-list">
-              {cartItems.map((item) => (
-                <div key={item.id} className="cart-row">
-                  <div>
-                    <p className="cart-title">{item.displayName || item.name}</p>
-                    <p className="muted small">
-                      {formatPrice(item.price)} each &bull;{" "}
-                      {formatPrice((Number(item.price) || 0) * (item.qty || 0))} total
-                    </p>
-                  </div>
-
-                  <div className="cart-actions">
-                    <div className="qty-chip small">
-                      <button onClick={() => decreaseQty(item.id)}>-</button>
-                      <span>{item.qty}</span>
-                      <button onClick={() => addToCart(item)}>+</button>
-                    </div>
-                    <button
-                      className="icon-btn"
-                      onClick={() => removeFromCart(item.id)}
-                    >
-                      Remove
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          <div className="field">
-            <label>Notes (optional)</label>
-            <textarea
-              rows="3"
-              placeholder="Allergies, timing, or other details"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-            />
-          </div>
-
-          <div className="totals">
-            <div>
-              <span className="muted">Items</span>
-              <strong>{totalQty}</strong>
-            </div>
-            <div>
-              <span className="muted">Total</span>
-              <strong>{formatPrice(subtotal)}</strong>
-            </div>
-          </div>
-
-          <button
-            className="primary-btn"
-            onClick={handleSubmit}
-            disabled={!canSubmit}
-          >
-            {submitting ? "Sending..." : "Send to Kitchen"}
-          </button>
-        </aside>
       </div>
 
       {modalItem ? (
@@ -552,6 +646,24 @@ export default function WaiterOrderCreate() {
           >
             {submitting ? "Sending..." : "Send to Kitchen"}
           </button>
+        </div>
+      ) : null}
+
+      <div className={`summary-fab ${cartItems.length ? "has-items" : ""}`}>
+        <button type="button" className="primary-btn" onClick={() => setIsSummaryOpen((open) => !open)}>
+          {isSummaryOpen ? "Close Summary" : "Open Summary"}
+          {cartItems.length ? ` (${cartItems.length})` : ""}
+        </button>
+      </div>
+
+      {isSummaryOpen ? (
+        <div className="summary-overlay" onClick={() => setIsSummaryOpen(false)}>
+          <div className="summary-drawer" onClick={(e) => e.stopPropagation()}>
+            {renderSummaryContent()}
+            <button className="ghost-btn close-drawer-btn" onClick={() => setIsSummaryOpen(false)}>
+              Close
+            </button>
+          </div>
         </div>
       ) : null}
     </div>

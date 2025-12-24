@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import useMenu from "../../hooks/useMenu";
 import useMenuLanguage from "../../hooks/useMenuLanguage";
 import {
@@ -10,6 +10,11 @@ import {
 import { orderIndex } from "../../utils/categoryOrder";
 import "./menu.css";
 
+const PLUS_ICON =
+  'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white"><path d="M11 4h2v16h-2z"/><path d="M4 11h16v2H4z"/></svg>';
+const MINUS_ICON =
+  'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white"><path d="M4 11h16v2H4z"/></svg>';
+
 export default function MenuPage() {
   const { language, setLanguage } = useMenuLanguage();
   const { menu, loading, error, refresh, categories } = useMenu(language);
@@ -20,7 +25,6 @@ export default function MenuPage() {
   const [showAllOrders, setShowAllOrders] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [showFloatingFilters, setShowFloatingFilters] = useState(false);
-  const sectionRefs = useRef([]);
 
   const localizedMenu = useMemo(
     () => menu.map((item) => localizeMenuItem(item, language)),
@@ -119,13 +123,28 @@ export default function MenuPage() {
     setSortBy("featured");
   };
 
-  const addToOrder = (item) => {
-    const key = item.id || `${item.name || "item"}-${item.category || "uncategorized"}`;
-    setOrdered((prev) => ({
-      ...prev,
-      [key]: { ...item, qty: (prev[key]?.qty || 0) + 1, __orderKey: key }
-    }));
+  const updateOrder = (item, delta = 1) => {
+    const key =
+      item.id || item.baseKey || item.sku || `${item.name || "item"}-${item.category || "uncategorized"}`;
+
+    setOrdered((prev) => {
+      const currentQty = prev[key]?.qty || 0;
+      const nextQty = Math.max(0, currentQty + delta);
+
+      if (nextQty === 0) {
+        const { [key]: _removed, ...rest } = prev;
+        return rest;
+      }
+
+      return {
+        ...prev,
+        [key]: { ...item, qty: nextQty, __orderKey: key }
+      };
+    });
   };
+
+  const addToOrder = (item) => updateOrder(item, 1);
+  const decreaseOrder = (item) => updateOrder(item, -1);
 
   const clearOrder = () => setOrdered({});
 
@@ -155,37 +174,13 @@ export default function MenuPage() {
   }, []);
 
   useEffect(() => {
-    const sections = sectionRefs.current.filter(Boolean);
-    if (!sections.length) return;
-
-    if (typeof IntersectionObserver === "undefined") {
-      sections.forEach((node) => node.classList.add("is-visible"));
-      return;
-    }
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add("is-visible");
-            observer.unobserve(entry.target);
-          }
-        });
-      },
-      { threshold: 0.2, rootMargin: "0px 0px -10% 0px" }
-    );
-
-    sections.forEach((node) => {
-      node.classList.remove("is-visible");
-      observer.observe(node);
-    });
-
-    return () => observer.disconnect();
-  }, [groupedMenu]);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setShowFilters(false);
+  }, [language]);
 
   return (
     <div className="menu-v2">
-      <div className="menu-v2__shell">
+      <div className="menu-v2__shell menu-v2__content">
         <header className="menu-v2__hero">
           <div>
             <p className="menu-v2__eyebrow">Menu</p>
@@ -233,6 +228,13 @@ export default function MenuPage() {
                   </button>
                 ))}
               </div>
+              <button
+                className="menu-v2__btn ghost small menu-v2__btn--more"
+                type="button"
+                onClick={() => setShowFilters(true)}
+              >
+                More
+              </button>
               <button className="menu-v2__btn ghost" type="button" onClick={resetFilters}>
                 Reset filters
               </button>
@@ -247,49 +249,7 @@ export default function MenuPage() {
           </div>
         </header>
 
-        <section className="menu-v2__controls">
-          <div className="menu-v2__control">
-            <label htmlFor="menu-search">Search dishes</label>
-            <input
-              id="menu-search"
-              type="search"
-              placeholder="Type a dish, ingredient, or category"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-            {search ? (
-              <button className="menu-v2__text-btn" type="button" onClick={() => setSearch("")}>
-                Clear search
-              </button>
-            ) : null}
-          </div>
-          <div className="menu-v2__control">
-            <label htmlFor="menu-category">Category</label>
-            <select
-              id="menu-category"
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-            >
-              <option value="all">All categories</option>
-              {categoryOptions.map((cat) => (
-                <option key={cat.key} value={cat.key}>
-                  {cat.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="menu-v2__control">
-            <label htmlFor="menu-sort">Sort by</label>
-            <select id="menu-sort" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
-              <option value="featured">Featured (by category)</option>
-              <option value="alpha">A → Z</option>
-              <option value="price-asc">Price: low to high</option>
-              <option value="price-desc">Price: high to low</option>
-            </select>
-          </div>
-        </section>
-
-        {showFilters ? (
+                {showFilters ? (
           <div className="menu-v2__filter-drawer" role="dialog" aria-modal="true" aria-label="Filters">
             <div className="menu-v2__filter-sheet">
               <div className="menu-v2__filter-head">
@@ -406,14 +366,12 @@ export default function MenuPage() {
             </div>
           </div>
         ) : (
+          // eslint-disable-next-line no-unused-vars
           groupedMenu.map(([cat, items], idx) => (
             <section
-              className="menu-v2__section"
+              className="menu-v2__section is-visible"
               key={cat}
               id={`category-${cat}`}
-              ref={(el) => {
-                sectionRefs.current[idx] = el;
-              }}
             >
               <div className="menu-v2__section-head">
                 <div>
@@ -424,12 +382,18 @@ export default function MenuPage() {
               </div>
               <div className="menu-v2__grid">
                 {items.map((item, idx) => {
+                  const itemKey =
+                    item.id ||
+                    item.baseKey ||
+                    item.sku ||
+                    `${item.name || "item"}-${idx}`;
+                  const currentQty = ordered[itemKey]?.qty || 0;
                   const hasImage = Boolean(item.imageUrl);
                   const displayName = item.displayName || item.name;
                   const displayDescription = item.displayDescription || item.description;
                   return (
                     <article
-                      key={item.id || `${item.name}-${idx}`}
+                      key={itemKey}
                       className={["menu-v2__card", hasImage ? "has-image" : "no-image"].join(" ")}
                     >
                       <div
@@ -476,23 +440,46 @@ export default function MenuPage() {
                           {item.spiceLevel ? (
                             <span className="menu-v2__pill warm">Spice: {item.spiceLevel}</span>
                           ) : null}
-                          {item.allergens ? (
-                            <span className="menu-v2__pill alert">Allergens: {item.allergens}</span>
-                          ) : null}
-                        </div>
-                        <div className="menu-v2__actions">
+                        {item.allergens ? (
+                          <span className="menu-v2__pill alert">Allergens: {item.allergens}</span>
+                        ) : null}
+                      </div>
+                    </div>
+                    <div className="menu-v2__actions menu-v2__actions--floating">
+                      {currentQty > 0 ? (
+                        <div className="menu-v2__qty-chip">
                           <button
-                            className="menu-v2__btn primary small"
                             type="button"
-                            onClick={() => addToOrder(item)}
+                            className="menu-v2__btn ghost small"
+                            onClick={() => decreaseOrder(item)}
+                            aria-label="Remove one"
                           >
-                            Order
+                            <img className="menu-v2__icon" src={MINUS_ICON} alt="" aria-hidden="true" />
+                          </button>
+                          <span>{currentQty}</span>
+                          <button
+                            type="button"
+                            className="menu-v2__btn primary small"
+                            onClick={() => addToOrder(item)}
+                            aria-label="Add one"
+                          >
+                            <img className="menu-v2__icon" src={PLUS_ICON} alt="" aria-hidden="true" />
                           </button>
                         </div>
-                      </div>
-                    </article>
-                  );
-                })}
+                      ) : (
+                        <button
+                          className="menu-v2__btn primary small"
+                          type="button"
+                          onClick={() => addToOrder(item)}
+                          aria-label="Add to order"
+                        >
+                          <img className="menu-v2__icon" src={PLUS_ICON} alt="" aria-hidden="true" />
+                        </button>
+                      )}
+                    </div>
+                  </article>
+                );
+              })}
               </div>
             </section>
           ))
@@ -545,3 +532,4 @@ export default function MenuPage() {
     </div>
   );
 }
+

@@ -1,3 +1,101 @@
+/* Item detail overlay */
+.menu-v2__detail-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 16px;
+  z-index: 120;
+}
+
+.menu-v2__detail {
+  background: #0b1224;
+  color: #e5edf7;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 18px 38px rgba(0, 0, 0, 0.45);
+  max-width: 540px;
+  width: min(540px, 100%);
+  display: grid;
+  gap: 12px;
+  overflow: hidden;
+}
+
+.menu-v2__detail-media {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  background: linear-gradient(145deg, #0f172a, #0b1224);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+.menu-v2__detail-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  max-width: 100%;
+  max-height: 100%;
+  display: block;
+  border-radius: inherit;
+}
+
+.menu-v2__detail-media img.is-placeholder {
+  object-fit: cover;
+  opacity: 0.9;
+  filter: saturate(0.9);
+}
+
+.menu-v2__detail-placeholder {
+  color: #9aa7bd;
+  font-weight: 700;
+}
+
+.menu-v2__detail-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+}
+
+.menu-v2__detail-body {
+  padding: 0 14px 14px;
+  display: grid;
+  gap: 10px;
+}
+
+.menu-v2__detail-body h3 {
+  margin: 0;
+}
+
+.menu-v2__detail-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.menu-v2__detail-hint {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(14, 165, 233, 0.15);
+  border: 1px solid rgba(14, 165, 233, 0.4);
+  color: #e5edf7;
+  padding: 8px 12px;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 12px;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.3);
+  z-index: 2;
+}
+
 .menu-v2 {
   min-height: 100vh;
   min-height: 100dvh;
@@ -477,7 +575,7 @@
 
 .menu-v2__card.no-image {
   min-height: 220px;
-  aspect-ratio: 3 / 4;
+  aspect-ratio: 4 / 4;
   background: linear-gradient(145deg, #0f172a, #0b1224);
 }
 
@@ -821,4 +919,10 @@
     bottom: 10px;
     margin: 0;
   }
+  .menu-v2__card.no-image {
+  min-height: 145px;
+  aspect-ratio: 4/ 3;
+  background: linear-gradient(145deg, #0f172a, #0b1224);
 }
+}
+

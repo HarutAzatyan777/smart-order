@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import useMenu from "../../hooks/useMenu";
 import useMenuLanguage from "../../hooks/useMenuLanguage";
 import {
@@ -14,6 +14,8 @@ const PLUS_ICON =
   'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white"><path d="M11 4h2v16h-2z"/><path d="M4 11h16v2H4z"/></svg>';
 const MINUS_ICON =
   'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white"><path d="M4 11h16v2H4z"/></svg>';
+const SWIPE_ICON =
+  'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white"><path d="M7 10a5 5 0 1 1 10 0v1h1.5a3.5 3.5 0 0 1 0 7h-8.44l.7 2.1a1 1 0 0 1-1.9.64l-1.1-3.3A2 2 0 0 1 9.7 15H13v-5a3 3 0 1 0-6 0v1.5a1 1 0 1 1-2 0V10Z"/></svg>';
 
 export default function MenuPage() {
   const { language, setLanguage } = useMenuLanguage();
@@ -25,6 +27,10 @@ export default function MenuPage() {
   const [showAllOrders, setShowAllOrders] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [showFloatingFilters, setShowFloatingFilters] = useState(false);
+  const [detailIndex, setDetailIndex] = useState(null);
+  const [detailHintSeen, setDetailHintSeen] = useState(false);
+  const [detailHintVisible, setDetailHintVisible] = useState(false);
+  const touchStartXRef = useRef(0);
 
   const localizedMenu = useMemo(
     () => menu.map((item) => localizeMenuItem(item, language)),
@@ -123,9 +129,11 @@ export default function MenuPage() {
     setSortBy("featured");
   };
 
+  const getStableKey = (item) =>
+    item.id || item.baseKey || item.sku || `${item.name || "item"}-${item.category || "uncategorized"}`;
+
   const updateOrder = (item, delta = 1) => {
-    const key =
-      item.id || item.baseKey || item.sku || `${item.name || "item"}-${item.category || "uncategorized"}`;
+    const key = getStableKey(item);
 
     setOrdered((prev) => {
       const currentQty = prev[key]?.qty || 0;
@@ -177,6 +185,67 @@ export default function MenuPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setShowFilters(false);
   }, [language]);
+
+  const detailList = useMemo(
+    () => filteredMenu.map((item) => ({ key: getStableKey(item), item })),
+    [filteredMenu]
+  );
+
+  const openDetail = (key) => {
+    const idx = detailList.findIndex((d) => d.key === key);
+    if (idx >= 0) {
+      setDetailIndex(idx);
+      if (!detailHintSeen) {
+        setDetailHintVisible(true);
+        setDetailHintSeen(true);
+      }
+    }
+  };
+
+  const closeDetail = () => setDetailIndex(null);
+
+  const goDetailDelta = (delta) => {
+    setDetailIndex((prev) => {
+      if (prev === null || !detailList.length) return prev;
+      const next = (prev + delta + detailList.length) % detailList.length;
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    if (detailIndex === null || !detailList.length) return;
+
+    const handleKey = (e) => {
+      if (e.key === "ArrowRight") {
+        e.preventDefault();
+        goDetailDelta(1);
+      } else if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        goDetailDelta(-1);
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        closeDetail();
+      }
+    };
+
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [detailIndex, detailList.length]);
+
+  const handleDetailTouchStart = (e) => {
+    setDetailHintVisible(false);
+    touchStartXRef.current = e.touches?.[0]?.clientX || 0;
+  };
+
+  const handleDetailTouchEnd = (e) => {
+    const endX = e.changedTouches?.[0]?.clientX || 0;
+    const delta = endX - touchStartXRef.current;
+    const threshold = 40;
+    if (delta > threshold) goDetailDelta(-1);
+    if (delta < -threshold) goDetailDelta(1);
+  };
+
+  const currentDetail = detailIndex !== null ? detailList[detailIndex] : null;
 
   return (
     <div className="menu-v2">
@@ -381,12 +450,8 @@ export default function MenuPage() {
                 <span className="menu-v2__chip subtle">{items.length} items</span>
               </div>
               <div className="menu-v2__grid">
-                {items.map((item, idx) => {
-                  const itemKey =
-                    item.id ||
-                    item.baseKey ||
-                    item.sku ||
-                    `${item.name || "item"}-${idx}`;
+                {items.map((item) => {
+                  const itemKey = getStableKey(item);
                   const currentQty = ordered[itemKey]?.qty || 0;
                   const hasImage = Boolean(item.imageUrl);
                   const displayName = item.displayName || item.name;
@@ -395,6 +460,7 @@ export default function MenuPage() {
                     <article
                       key={itemKey}
                       className={["menu-v2__card", hasImage ? "has-image" : "no-image"].join(" ")}
+                      onClick={() => openDetail(itemKey)}
                     >
                       <div
                         className={[
@@ -451,7 +517,10 @@ export default function MenuPage() {
                           <button
                             type="button"
                             className="menu-v2__btn ghost small"
-                            onClick={() => decreaseOrder(item)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              decreaseOrder(item);
+                            }}
                             aria-label="Remove one"
                           >
                             <img className="menu-v2__icon" src={MINUS_ICON} alt="" aria-hidden="true" />
@@ -460,7 +529,10 @@ export default function MenuPage() {
                           <button
                             type="button"
                             className="menu-v2__btn primary small"
-                            onClick={() => addToOrder(item)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              addToOrder(item);
+                            }}
                             aria-label="Add one"
                           >
                             <img className="menu-v2__icon" src={PLUS_ICON} alt="" aria-hidden="true" />
@@ -470,7 +542,10 @@ export default function MenuPage() {
                         <button
                           className="menu-v2__btn primary small"
                           type="button"
-                          onClick={() => addToOrder(item)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            addToOrder(item);
+                          }}
                           aria-label="Add to order"
                         >
                           <img className="menu-v2__icon" src={PLUS_ICON} alt="" aria-hidden="true" />
@@ -529,7 +604,78 @@ export default function MenuPage() {
           Filters
         </button>
       ) : null}
+      {currentDetail ? (
+        <div
+          className="menu-v2__detail-overlay"
+          onClick={closeDetail}
+            onTouchStart={handleDetailTouchStart}
+            onTouchEnd={handleDetailTouchEnd}
+        >
+          <div className="menu-v2__detail" onClick={(e) => e.stopPropagation()}>
+            {detailHintVisible ? (
+              <div
+                className="menu-v2__detail-hint"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setDetailHintVisible(false);
+                }}
+              >
+                <img className="menu-v2__icon" src={SWIPE_ICON} alt="" aria-hidden="true" />
+                <span>Swipe left/right or use +/- to adjust</span>
+              </div>
+            ) : null}
+            <div className="menu-v2__detail-media">
+              <img
+                className={!currentDetail.item.imageUrl ? "is-placeholder" : ""}
+                src={currentDetail.item.imageUrl || "/placeholder-food.jpg"}
+                alt={
+                  (currentDetail.item.displayName || currentDetail.item.name || "Menu item") +
+                  (!currentDetail.item.imageUrl ? " (placeholder)" : "")
+                }
+              />
+              <button
+                className="menu-v2__btn ghost small menu-v2__detail-close"
+                type="button"
+                onClick={closeDetail}
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </div>
+            <div className="menu-v2__detail-body">
+              <h3>{currentDetail.item.displayName || currentDetail.item.name}</h3>
+              <p className="menu-v2__text">
+                {currentDetail.item.displayDescription || currentDetail.item.description || "No description"}
+              </p>
+              {currentDetail.item.displayCategory ? (
+                <span className="menu-v2__pill subtle">{currentDetail.item.displayCategory}</span>
+              ) : null}
+              <div className="menu-v2__detail-meta">
+                <span className="menu-v2__price">{formatPrice(currentDetail.item.price)}</span>
+                <div className="menu-v2__qty-chip">
+                  <button
+                    type="button"
+                    className="menu-v2__btn ghost small"
+                    onClick={() => decreaseOrder(currentDetail.item)}
+                    aria-label="Remove one"
+                  >
+                    <img className="menu-v2__icon" src={MINUS_ICON} alt="" aria-hidden="true" />
+                  </button>
+                  <span>{ordered[currentDetail.key]?.qty || 0}</span>
+                  <button
+                    type="button"
+                    className="menu-v2__btn primary small"
+                    onClick={() => addToOrder(currentDetail.item)}
+                    aria-label="Add one"
+                  >
+                    <img className="menu-v2__icon" src={PLUS_ICON} alt="" aria-hidden="true" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
-

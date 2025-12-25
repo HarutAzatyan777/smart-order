@@ -7,7 +7,12 @@ import { formatCurrency } from "./helpers";
 import { useAdminMenu } from "./useAdminMenu";
 import useMenuLanguage from "../../hooks/useMenuLanguage";
 
-export default function AdminMenu() {
+const MENU_THEME = {
+  accent: "#db2777",
+  bg: "rgba(219,39,119,0.04)"
+};
+
+export default function AdminMenu({ embedded = false }) {
   const navigate = useNavigate();
   const token = localStorage.getItem("adminToken");
   const { language, setLanguage } = useMenuLanguage();
@@ -93,10 +98,16 @@ export default function AdminMenu() {
   }, [token, navigate, loadMenu]);
 
   const availableMenu = menu.filter((m) => m.available !== false).length;
+  const containerClass = embedded ? "admin-menu-embedded" : "admin-dashboard admin-menu-page";
+  const heroClass = embedded ? "admin-menu-hero embedded" : "admin-menu-hero";
+  const panelClass = embedded ? "admin-menu-panel embedded" : "admin-menu-panel";
+  const containerStyle = embedded
+    ? undefined
+    : { "--section-accent": MENU_THEME.accent, "--section-bg-soft": MENU_THEME.bg };
 
   return (
-    <div className="admin-dashboard admin-menu-page">
-      <header className="admin-menu-hero">
+    <div className={containerClass} style={containerStyle}>
+      <header className={heroClass}>
         <div>
           <p className="eyebrow">Admin menu</p>
           <h1 className="hero-title">Full menu workspace</h1>
@@ -110,9 +121,11 @@ export default function AdminMenu() {
           </div>
         </div>
         <div className="admin-menu-actions">
-          <button className="ghost-btn" type="button" onClick={() => navigate("/admin")}>
-            Back to dashboard
-          </button>
+          {!embedded ? (
+            <button className="ghost-btn" type="button" onClick={() => navigate("/admin")}>
+              Back to dashboard
+            </button>
+          ) : null}
           <button
             className="outline-btn"
             type="button"
@@ -126,7 +139,7 @@ export default function AdminMenu() {
 
       {error ? <div className="admin-alert">{error}</div> : null}
 
-      <div className="admin-menu-panel">
+      <div className={panelClass}>
         <MenuPanel
           ref={panelRef}
           menuSearch={menuSearch}

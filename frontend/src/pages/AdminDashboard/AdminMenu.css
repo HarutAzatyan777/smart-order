@@ -29,3 +29,19 @@
   margin-top: 12px;
 }
 
+.admin-menu-embedded {
+  display: grid;
+  gap: 12px;
+}
+
+.admin-menu-hero.embedded {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 14px;
+  margin-bottom: 0;
+}
+
+.admin-menu-panel.embedded {
+  margin-top: 0;
+}

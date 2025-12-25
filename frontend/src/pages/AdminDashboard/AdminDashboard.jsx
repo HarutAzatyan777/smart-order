@@ -1,19 +1,18 @@
 import "./AdminDashboard.css";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { apiUrl } from "../../config/api";
 
 import StatCard from "./components/StatCard";
 import WaitersPanel from "./components/WaitersPanel";
-import MenuPanel from "./components/MenuPanel";
 import OrdersPanel from "./components/OrdersPanel";
 import TablesPanel from "./components/TablesPanel";
 import StationsPanel from "./components/StationsPanel";
+import AdminMenu from "./AdminMenu";
 import {
   ACTIVE_STATUSES,
   CLOSED_STATUSES,
   fetchJson,
-  formatCurrency,
   formatStatus,
   getAdminOrderActions,
   getAgeLabel,
@@ -24,8 +23,61 @@ import {
 import MenuFullModal from "./components/MenuFullModal";
 import { useAdminMenu } from "./useAdminMenu";
 
+const PANEL_META = {
+  console: {
+    label: "Admin Console",
+    title: "Command center",
+    description: "High-level snapshot of orders, staff, tables, and menu health."
+  },
+  stations: {
+    label: "Stations",
+    title: "Kitchen stations & routing",
+    description: "Configure prep stations, statuses, and routing rules."
+  },
+  team: {
+    label: "Team",
+    title: "Waiter roster",
+    description: "Manage waiters, pins, and access for the floor team."
+  },
+  orders: {
+    label: "Orders",
+    title: "Order review",
+    description: "Track, triage, and advance incoming orders in real time."
+  },
+  tables: {
+    label: "Tables",
+    title: "Table management",
+    description: "Create, activate, or retire tables used in the dining room."
+  },
+  menu: {
+    label: "Admin menu",
+    title: "Full menu workspace",
+    description: "Add dishes, edit details, and manage availability with the full menu view."
+  }
+};
+
+const PANEL_IDS = Object.keys(PANEL_META);
+const ACCENT_COLOR = "#2563eb";
+const ACCENT_BG = "#f8fafc";
+
+const NAV_ITEMS = [
+  { id: "console", label: "Admin Console", hint: "Overview / stats", icon: "AC" },
+  { id: "stations", label: "Stations", hint: "Kitchen stations & routing", icon: "ST" },
+  { id: "team", label: "Team", hint: "Waiters", icon: "TM" },
+  { id: "orders", label: "Orders", hint: "Order review", icon: "OR" },
+  { id: "tables", label: "Tables", hint: "Table management", icon: "TB" },
+  { id: "menu", label: "Admin menu", hint: "Full menu workspace", icon: "MN" }
+];
+
 export default function AdminDashboard() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const normalizePanel = useCallback(
+    (value) => (PANEL_IDS.includes(value) ? value : "console"),
+    []
+  );
+  const [activePanel, setActivePanel] = useState(() => normalizePanel(searchParams.get("section")));
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const WAITER_API = apiUrl("admin/waiters");
   const ORDERS_API = apiUrl("admin/orders");
@@ -49,9 +101,9 @@ export default function AdminDashboard() {
   const [pin, setPin] = useState("");
 
   const [orderSearch, setOrderSearch] = useState("");
-  const [orderFilter, setOrderFilter] = useState("active");
-  const [tableNumberInput, setTableNumberInput] = useState("");
-  const [tableLabelInput, setTableLabelInput] = useState("");
+const [orderFilter, setOrderFilter] = useState("active");
+const [tableNumberInput, setTableNumberInput] = useState("");
+const [tableLabelInput, setTableLabelInput] = useState("");
 
   const [error, setError] = useState("");
   const [loading, setLoading] = useState({
@@ -65,74 +117,10 @@ export default function AdminDashboard() {
   const [orderActionId, setOrderActionId] = useState("");
   const [stationActionId, setStationActionId] = useState("");
   const [routingSaving, setRoutingSaving] = useState(false);
-  const menuPanelRef = useRef(null);
   const moreRef = useRef(null);
   const [moreOpen, setMoreOpen] = useState(false);
   const [showFullMenuModal, setShowFullMenuModal] = useState(false);
-  const {
-    menu,
-    menuName,
-    setMenuName,
-    menuPrice,
-    setMenuPrice,
-    menuCategory,
-    setMenuCategory,
-    menuDescription,
-    setMenuDescription,
-    menuImagePreview,
-    handleMenuImageFileChange,
-    clearMenuImageSelection,
-    editingMenuId,
-    startEditMenuItem,
-    cancelEditMenuItem,
-    editMenuName,
-    setEditMenuName,
-    editMenuPrice,
-    setEditMenuPrice,
-    editMenuCategory,
-    setEditMenuCategory,
-    editMenuDescription,
-    setEditMenuDescription,
-    editMenuImagePreview,
-    editMenuImageUrl,
-    handleEditMenuImageFileChange,
-    clearEditMenuImageSelection,
-    removeEditMenuImage,
-    addMenuItem,
-    saveMenuItem,
-    toggleMenuAvailability,
-    deleteMenuItem,
-    menuActionId,
-    imageUploadStatus,
-    importingMenu,
-    importSummary,
-    importMenuFile,
-    loadMenu,
-    menuSearch,
-    setMenuSearch,
-    menuFilter,
-    setMenuFilter,
-    filteredMenu,
-    categories,
-    loadingMenu,
-    menuNameHy,
-    setMenuNameHy,
-    menuCategoryHy,
-    setMenuCategoryHy,
-    menuDescriptionHy,
-    setMenuDescriptionHy,
-    editMenuNameHy,
-    setEditMenuNameHy,
-    editMenuCategoryHy,
-    setEditMenuCategoryHy,
-    editMenuDescriptionHy,
-    setEditMenuDescriptionHy,
-    categoryOrder,
-    savingCategoryOrder,
-    categoriesLoading,
-    createCategory,
-    deleteCategory
-  } = useAdminMenu({ token, setError });
+  const { menu, loadMenu, filteredMenu, categories } = useAdminMenu({ token, setError });
 
   const refreshAll = async () => {
     setLoading((prev) => ({ ...prev, refresh: true }));
@@ -158,6 +146,13 @@ export default function AdminDashboard() {
   }, [token, navigate]);
 
   useEffect(() => {
+    const next = normalizePanel(searchParams.get("section"));
+    if (next !== activePanel) {
+      setActivePanel(next);
+    }
+  }, [searchParams, normalizePanel, activePanel]);
+
+  useEffect(() => {
     const handleClickOutside = (event) => {
       if (moreRef.current && !moreRef.current.contains(event.target)) {
         setMoreOpen(false);
@@ -174,6 +169,20 @@ export default function AdminDashboard() {
       ...(options.headers || {})
     }
   });
+
+  const handlePanelChange = (panelId) => {
+    const next = normalizePanel(panelId);
+    setActivePanel(next);
+    const params = new URLSearchParams(searchParams);
+    if (next === "console") {
+      params.delete("section");
+    } else {
+      params.set("section", next);
+    }
+    setSearchParams(params);
+    setSidebarOpen(false);
+    setMoreOpen(false);
+  };
 
   const handleLogout = () => {
     localStorage.removeItem("adminToken");
@@ -560,212 +569,262 @@ export default function AdminDashboard() {
     };
   }, [orders, menu, waiters]);
 
-  // ========================= RENDER ========================= //
+  const activeMeta = PANEL_META[activePanel] || PANEL_META.console;
 
-  return (
-    <div className="admin-dashboard">
-      <header className="admin-hero">
-        <div>
-          <p className="eyebrow-1">Admin console</p>
-          <h1 className="hero-title">Command center</h1>
-          <p className="muted">
-            Manage staff, menu, and orders from one dashboard. Data is pulled live from the API.
-          </p>
-        <div className="hero-actions">
-          <button className="ghost-btn" onClick={refreshAll} disabled={loading.refresh}>
-            {loading.refresh ? "Refreshing..." : "Refresh data"}
-          </button>
-          <button className="outline-btn" onClick={() => navigate("/admin/menu")}>
-            Open menu page
-          </button>
-          <div className="more-dropdown" ref={moreRef}>
-            <button
-              type="button"
-              className="ghost-btn"
-              onClick={() => setMoreOpen((prev) => !prev)}
-              aria-haspopup="true"
-              aria-expanded={moreOpen}
-            >
-              More
-            </button>
-            {moreOpen ? (
-              <div className="more-menu-content">
+  const renderPanel = () => {
+    switch (activePanel) {
+      case "stations":
+        return (
+          <StationsPanel
+            stations={stations}
+            routing={stationRouting}
+            categories={categories}
+            loading={loading.stations}
+            savingRouting={routingSaving}
+            stationActionId={stationActionId}
+            onCreate={createStation}
+            onUpdate={updateStation}
+            onDelete={deleteStation}
+            onSaveRouting={saveStationRouting}
+            onReload={() => {
+              loadStations();
+              loadStationRouting();
+            }}
+          />
+        );
+      case "team":
+        return (
+          <WaitersPanel
+            waiters={waiters}
+            loading={loading.waiters}
+            waiterAction={waiterAction}
+            name={name}
+            pin={pin}
+            onNameChange={setName}
+            onPinChange={setPin}
+            onAdd={addWaiter}
+            onDelete={deleteWaiter}
+            onReload={loadWaiters}
+          />
+        );
+      case "orders":
+        return (
+          <OrdersPanel
+            filteredOrders={filteredOrders}
+            loadingOrders={loading.orders}
+            orderFilter={orderFilter}
+            setOrderFilter={setOrderFilter}
+            orderSearch={orderSearch}
+            setOrderSearch={setOrderSearch}
+            updateOrderStatus={updateOrderStatus}
+            orderActionId={orderActionId}
+            getAdminOrderActions={getAdminOrderActions}
+            getAgeLabel={getAgeLabel}
+            getItemCount={getItemCount}
+            formatStatus={formatStatus}
+            isLagging={isLagging}
+            onReload={loadOrders}
+          />
+        );
+      case "tables":
+        return (
+          <TablesPanel
+            tables={tables}
+            loading={loading.tables}
+            error=""
+            formNumber={tableNumberInput}
+            setFormNumber={setTableNumberInput}
+            formLabel={tableLabelInput}
+            setFormLabel={setTableLabelInput}
+            onCreate={createTable}
+            onToggleActive={toggleTableActive}
+            onDelete={deleteTable}
+            onReload={loadTables}
+          />
+        );
+      case "menu":
+        return (
+          <AdminMenu embedded />
+        );
+      case "console":
+      default:
+        return (
+          <div className="admin-panel wide console-panel">
+            <div className="panel-heading">
+              <div>
+                <p className="eyebrow-1 soft">Overview</p>
+                <h3>Operations snapshot</h3>
+                <p className="muted small">
+                  Live counts across orders, staff, tables, and menu. Use the sidebar to drill into a module.
+                </p>
+              </div>
+              <div className="panel-actions">
                 <button
-                  type="button"
                   className="ghost-btn small"
-                  onClick={() => {
-                    navigate("/admin/menu");
-                    setMoreOpen(false);
-                  }}
-                >
-                  Manage menu
-                </button>
-                <button
                   type="button"
-                  className="ghost-btn small"
-                  onClick={() => {
-                    setShowFullMenuModal(true);
-                    setMoreOpen(false);
-                  }}
+                  onClick={refreshAll}
+                  disabled={loading.refresh}
                 >
-                  View full menu window
+                  {loading.refresh ? "Refreshing..." : "Refresh all"}
                 </button>
               </div>
-            ) : null}
+            </div>
+
+            <div className="stats-grid console-stats">
+              <StatCard label="Active orders" value={stats.activeOrders} hint="New, accepted, prep" />
+              <StatCard label="Ready for pickup" value={stats.readyOrders} hint="Marked ready" />
+              <StatCard label="Waiters" value={stats.waiters} hint="Onboarded staff" />
+              <StatCard label="Menu items" value={stats.menuCount} hint={`${stats.categories} categories`} />
+              <StatCard label="Available menu" value={stats.availableMenu} hint="Live for ordering" />
+              <StatCard label="Tables" value={tables.length} hint="Configured tables" />
+            </div>
+
+            <div className="quick-links">
+              <p className="muted small">Jump to a module</p>
+              <div className="quick-links-row">
+                <button className="pill-btn" type="button" onClick={() => handlePanelChange("orders")}>
+                  Orders
+                </button>
+                <button className="pill-btn" type="button" onClick={() => handlePanelChange("stations")}>
+                  Stations
+                </button>
+                <button className="pill-btn" type="button" onClick={() => handlePanelChange("team")}>
+                  Team
+                </button>
+                <button className="pill-btn" type="button" onClick={() => handlePanelChange("tables")}>
+                  Tables
+                </button>
+                <button className="pill-btn" type="button" onClick={() => handlePanelChange("menu")}>
+                  Menu
+                </button>
+              </div>
+            </div>
           </div>
-          <span className="pill live-chip">Secured with admin token</span>
-          <button className="danger-btn" onClick={handleLogout}>
-            Logout
-          </button>
+        );
+    }
+  };
+
+  return (
+    <div className="admin-dashboard" style={{ "--section-accent": ACCENT_COLOR, "--section-bg-soft": ACCENT_BG }}>
+      <div className="admin-shell">
+        <AdminSidebar items={NAV_ITEMS} active={activePanel} onSelect={handlePanelChange} open={sidebarOpen} />
+
+        <div className="admin-content">
+          <header className="admin-hero">
+            <div>
+              <p className="eyebrow-1">{activeMeta.label}</p>
+              <h1 className="hero-title">{activeMeta.title}</h1>
+              <p className="muted">{activeMeta.description}</p>
+              <div className="hero-actions">
+                <button
+                  type="button"
+                  className="ghost-btn sidebar-toggle mobile-only"
+                  onClick={() => setSidebarOpen(true)}
+                >
+                  Open navigation
+                </button>
+                <button className="ghost-btn" onClick={refreshAll} disabled={loading.refresh}>
+                  {loading.refresh ? "Refreshing..." : "Refresh data"}
+                </button>
+                <button className="outline-btn" onClick={() => handlePanelChange("menu")}>
+                  Open menu workspace
+                </button>
+                <div className="more-dropdown" ref={moreRef}>
+                  <button
+                    type="button"
+                    className="ghost-btn"
+                    onClick={() => setMoreOpen((prev) => !prev)}
+                    aria-haspopup="true"
+                    aria-expanded={moreOpen}
+                  >
+                    More
+                  </button>
+                  {moreOpen ? (
+                    <div className="more-menu-content">
+                      <button
+                        type="button"
+                        className="ghost-btn small"
+                        onClick={() => {
+                          handlePanelChange("menu");
+                          setMoreOpen(false);
+                        }}
+                      >
+                        Manage menu
+                      </button>
+                      <button
+                        type="button"
+                        className="ghost-btn small"
+                        onClick={() => {
+                          setShowFullMenuModal(true);
+                          setMoreOpen(false);
+                        }}
+                      >
+                        View full menu window
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+                <span className="pill live-chip">Secured with admin token</span>
+                <button className="danger-btn" onClick={handleLogout}>
+                  Logout
+                </button>
+              </div>
+            </div>
+
+            <div className="hero-meta">
+              <div className="hero-pills">
+                <span className="pill light">{stats.activeOrders} active</span>
+                <span className="pill subtle">{stats.availableMenu} menu live</span>
+                <span className="pill subtle">{waiters.length} waiters</span>
+              </div>
+            </div>
+          </header>
+
+          {error ? <div className="admin-alert">{error}</div> : null}
+
+          <div className="admin-content-body">{renderPanel()}</div>
         </div>
-        </div>
+      </div>
 
-        <div className="stats-grid">
-          <StatCard label="Active orders" value={stats.activeOrders} hint="New, accepted, prep" />
-          <StatCard label="Menu items" value={stats.menuCount} hint={`${stats.categories} categories`} />
-          <StatCard label="Waiters" value={stats.waiters} hint="Onboarded staff" />
-          <StatCard label="Ready for pickup" value={stats.readyOrders} hint="Orders marked ready" />
-        </div>
-      </header>
+      {sidebarOpen ? <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} /> : null}
 
-      {error ? <div className="admin-alert">{error}</div> : null}
-
-      <StationsPanel
-        stations={stations}
-        routing={stationRouting}
-        categories={categories}
-        loading={loading.stations}
-        savingRouting={routingSaving}
-        stationActionId={stationActionId}
-        onCreate={createStation}
-        onUpdate={updateStation}
-        onDelete={deleteStation}
-        onSaveRouting={saveStationRouting}
-        onReload={() => {
-          loadStations();
-          loadStationRouting();
-        }}
-      />
-
-      <WaitersPanel
-        waiters={waiters}
-        loading={loading.waiters}
-        waiterAction={waiterAction}
-        name={name}
-        pin={pin}
-        onNameChange={setName}
-        onPinChange={setPin}
-        onAdd={addWaiter}
-        onDelete={deleteWaiter}
-        onReload={loadWaiters}
-      />
-
-      {/* Orders */}
-      <OrdersPanel
-        filteredOrders={filteredOrders}
-        loadingOrders={loading.orders}
-        orderFilter={orderFilter}
-        setOrderFilter={setOrderFilter}
-        orderSearch={orderSearch}
-        setOrderSearch={setOrderSearch}
-        updateOrderStatus={updateOrderStatus}
-        orderActionId={orderActionId}
-        getAdminOrderActions={getAdminOrderActions}
-        getAgeLabel={getAgeLabel}
-        getItemCount={getItemCount}
-        formatStatus={formatStatus}
-        isLagging={isLagging}
-        onReload={loadOrders}
-      />
       <MenuFullModal
         open={showFullMenuModal}
         onClose={() => setShowFullMenuModal(false)}
         categories={categories}
         filteredMenu={filteredMenu}
       />
-      <div className="panel-grid">
-        <TablesPanel
-          tables={tables}
-          loading={loading.tables}
-          error=""
-          formNumber={tableNumberInput}
-          setFormNumber={setTableNumberInput}
-          formLabel={tableLabelInput}
-          setFormLabel={setTableLabelInput}
-          onCreate={createTable}
-          onToggleActive={toggleTableActive}
-          onDelete={deleteTable}
-          onReload={loadTables}
-        />
-
-        <MenuPanel
-          ref={menuPanelRef}
-          menuSearch={menuSearch}
-          setMenuSearch={setMenuSearch}
-          loadingMenu={loadingMenu}
-          menuName={menuName}
-          setMenuName={setMenuName}
-          menuPrice={menuPrice}
-          setMenuPrice={setMenuPrice}
-          menuCategory={menuCategory}
-          setMenuCategory={setMenuCategory}
-          menuDescription={menuDescription}
-          setMenuDescription={setMenuDescription}
-          menuNameHy={menuNameHy}
-          setMenuNameHy={setMenuNameHy}
-          menuCategoryHy={menuCategoryHy}
-          setMenuCategoryHy={setMenuCategoryHy}
-          menuDescriptionHy={menuDescriptionHy}
-          setMenuDescriptionHy={setMenuDescriptionHy}
-          addMenuItem={addMenuItem}
-          imageUploadStatus={imageUploadStatus}
-          menuImagePreview={menuImagePreview}
-          onMenuImageFileChange={handleMenuImageFileChange}
-          onMenuImageClear={clearMenuImageSelection}
-          categories={categories}
-          filteredMenu={filteredMenu}
-          editingMenuId={editingMenuId}
-          startEditMenuItem={startEditMenuItem}
-          cancelEditMenuItem={cancelEditMenuItem}
-          editMenuName={editMenuName}
-          setEditMenuName={setEditMenuName}
-          editMenuPrice={editMenuPrice}
-          setEditMenuPrice={setEditMenuPrice}
-          editMenuCategory={editMenuCategory}
-          setEditMenuCategory={setEditMenuCategory}
-          editMenuDescription={editMenuDescription}
-          setEditMenuDescription={setEditMenuDescription}
-          editMenuNameHy={editMenuNameHy}
-          setEditMenuNameHy={setEditMenuNameHy}
-          editMenuCategoryHy={editMenuCategoryHy}
-          setEditMenuCategoryHy={setEditMenuCategoryHy}
-          editMenuDescriptionHy={editMenuDescriptionHy}
-          setEditMenuDescriptionHy={setEditMenuDescriptionHy}
-          editMenuImagePreview={editMenuImagePreview}
-          editMenuImageUrl={editMenuImageUrl}
-          onEditMenuImageFileChange={handleEditMenuImageFileChange}
-          onEditMenuImageClearSelection={clearEditMenuImageSelection}
-          onEditMenuImageRemove={removeEditMenuImage}
-          saveMenuItem={saveMenuItem}
-          toggleMenuAvailability={toggleMenuAvailability}
-          deleteMenuItem={deleteMenuItem}
-          menuActionId={menuActionId}
-          formatCurrency={formatCurrency}
-          importingMenu={importingMenu}
-          importSummary={importSummary}
-          importMenuFile={importMenuFile}
-          onReload={loadMenu}
-          maxCategoryList={3}
-          menuFilter={menuFilter}
-          setMenuFilter={setMenuFilter}
-          onViewAllClick={() => navigate("/admin/menu")}
-          categoryOrder={categoryOrder}
-          savingCategoryOrder={savingCategoryOrder}
-          categoriesLoading={categoriesLoading}
-          createCategory={createCategory}
-          deleteCategory={deleteCategory}
-        />
-      </div>
     </div>
+  );
+}
+
+function AdminSidebar({ items, active, onSelect, open }) {
+  return (
+    <aside className={`admin-sidebar ${open ? "open" : ""}`}>
+      <div className="sidebar-header">
+        <div>
+          <p className="eyebrow-1 soft">Admin</p>
+          <h3 className="sidebar-title">Control board</h3>
+          <p className="muted small">Pick a module to manage.</p>
+        </div>
+      </div>
+      <nav className="sidebar-nav">
+        {items.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            className={`sidebar-item ${active === item.id ? "active" : ""}`}
+            onClick={() => onSelect(item.id)}
+            aria-current={active === item.id ? "page" : undefined}
+          >
+            <span className="sidebar-icon">{item.icon}</span>
+            <span className="nav-labels">
+              <span className="nav-label">{item.label}</span>
+              <span className="nav-hint">{item.hint}</span>
+            </span>
+          </button>
+        ))}
+      </nav>
+    </aside>
   );
 }

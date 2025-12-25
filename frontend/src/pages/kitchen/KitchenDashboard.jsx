@@ -124,6 +124,7 @@ export default function KitchenDashboard() {
   const [mode, setMode] = useState(
     localStorage.getItem("kitchenMode") === "compact" ? "compact" : "batch"
   );
+  // eslint-disable-next-line no-unused-vars
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [metricsByStation, setMetricsByStation] = useState({});
 
@@ -149,6 +150,7 @@ export default function KitchenDashboard() {
 
   const {
     data: stationMetrics,
+    // eslint-disable-next-line no-unused-vars
     loading: metricsLoading,
     refresh: refreshMetrics
   } = useStationMetrics(selectedStation?.slug, { pollMs: 9000 });

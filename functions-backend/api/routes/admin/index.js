@@ -31,5 +31,6 @@ router.use('/waiters', require('./waiters'));
 router.use('/menu', require('./menu'));
 router.use('/orders', require('./orders'));
 router.use('/tables', require('./tables'));
+router.use('/stations', require('./stations'));
 
 module.exports = router;

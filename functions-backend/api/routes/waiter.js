@@ -2,6 +2,12 @@ const express = require('express');
 const router = express.Router();
 const { db } = require('../../admin');
 const { FieldValue } = require('firebase-admin/firestore');
+const { updateItems, createOrderWithItems } = require('../services/orderService');
+const {
+  getRoutingConfig,
+  getStationsMap,
+  resolveStationForItem
+} = require('../services/stationsService');
 
 // =======================================
 // WAITER: Public roster (no PINs)
@@ -65,9 +71,9 @@ router.post('/login', async (req, res) => {
 // =======================================
 router.post('/create', async (req, res) => {
   try {
-    const { table, items, notes, waiterId, waiterName } = req.body;
+    const { table, tableId, items, notes, waiterId, waiterName } = req.body;
 
-    if (!table || !items || !Array.isArray(items) || items.length === 0) {
+    if ((!table && !tableId) || !items || !Array.isArray(items) || items.length === 0) {
       return res.status(400).send({ error: "Missing table or items" });
     }
 
@@ -75,21 +81,43 @@ router.post('/create', async (req, res) => {
       return res.status(400).send({ error: "Missing waiter identity" });
     }
 
-    const orderData = {
-      table,
-      items,
-      notes: notes || "",
-      waiterId,
-      waiterName,
-      status: "submitted",
-      createdAt: FieldValue.serverTimestamp(),
-      updatedAt: FieldValue.serverTimestamp()
-    };
+    let tableNumber = Number(table) || null;
+    let resolvedTableId = tableId || null;
 
-    const docRef = await db.collection("orders").add(orderData);
+    if (tableId) {
+      const tableDoc = await db.collection("tables").doc(tableId).get();
+      if (!tableDoc.exists || tableDoc.data().active === false) {
+        return res.status(400).send({ error: "Table not found or inactive" });
+      }
+      tableNumber = tableDoc.data().number;
+      resolvedTableId = tableDoc.id;
+    } else if (!tableNumber) {
+      return res.status(400).send({ error: "Table number is required" });
+    }
+
+    const routingConfig = await getRoutingConfig();
+    const stationsMap = await getStationsMap({ includeInactive: true });
+
+    const result = await createOrderWithItems(
+      {
+        table: tableNumber,
+        tableId: resolvedTableId,
+        waiterId,
+        waiterName,
+        items,
+        notes: notes || "",
+        status: "submitted"
+      },
+      {
+        routingConfig,
+        stationsMap,
+        stationResolver: (item) => resolveStationForItem(item, routingConfig, stationsMap)
+      }
+    );
 
     res.status(201).send({
-      id: docRef.id,
+      id: result.id,
+      status: result.status,
       message: "Order sent to kitchen"
     });
 
@@ -159,15 +187,50 @@ router.patch('/:id/deliver', async (req, res) => {
   try {
     const { id } = req.params;
 
-    await db.collection("orders").doc(id).update({
-      status: "delivered",
-      updatedAt: FieldValue.serverTimestamp()
-    });
+    const orderDoc = await db.collection("orders").doc(id).get();
+    if (!orderDoc.exists) {
+      return res.status(404).send({ error: "Order not found" });
+    }
+
+    const itemIds = Array.isArray(orderDoc.data().items)
+      ? orderDoc.data().items.map((i) => i?.itemId).filter(Boolean)
+      : [];
+
+    if (itemIds.length) {
+      await updateItems(itemIds, { status: "delivered" });
+    } else {
+      await db.collection("orders").doc(id).update({
+        status: "delivered",
+        updatedAt: FieldValue.serverTimestamp()
+      });
+    }
 
     res.status(200).send({ message: "Order delivered", id });
 
   } catch (error) {
     console.error("Waiter deliver error:", error);
+    res.status(500).send({ error: error.message });
+  }
+});
+
+// =======================================
+// DELIVER SINGLE ITEM
+// =======================================
+router.patch('/:orderId/items/:itemId/deliver', async (req, res) => {
+  try {
+    const { orderId, itemId } = req.params;
+    if (!orderId || !itemId) {
+      return res.status(400).send({ error: "Missing order or item" });
+    }
+
+    const result = await updateItems([itemId], { status: "delivered" });
+
+    res.status(200).send({
+      message: "Item marked delivered",
+      updated: result.updated
+    });
+  } catch (error) {
+    console.error("Waiter deliver item error:", error);
     res.status(500).send({ error: error.message });
   }
 });

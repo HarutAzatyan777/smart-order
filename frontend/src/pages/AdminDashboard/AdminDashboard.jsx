@@ -8,6 +8,7 @@ import WaitersPanel from "./components/WaitersPanel";
 import MenuPanel from "./components/MenuPanel";
 import OrdersPanel from "./components/OrdersPanel";
 import TablesPanel from "./components/TablesPanel";
+import StationsPanel from "./components/StationsPanel";
 import {
   ACTIVE_STATUSES,
   CLOSED_STATUSES,
@@ -29,12 +30,20 @@ export default function AdminDashboard() {
   const WAITER_API = apiUrl("admin/waiters");
   const ORDERS_API = apiUrl("admin/orders");
   const TABLES_API = apiUrl("admin/tables");
+  const STATIONS_API = apiUrl("admin/stations");
+  const STATION_ROUTING_API = apiUrl("admin/stations/routing/map");
 
   const token = localStorage.getItem("adminToken");
 
   const [waiters, setWaiters] = useState([]);
   const [orders, setOrders] = useState([]);
   const [tables, setTables] = useState([]);
+  const [stations, setStations] = useState([]);
+  const [stationRouting, setStationRouting] = useState({
+    categories: {},
+    items: {},
+    defaultStation: null
+  });
 
   const [name, setName] = useState("");
   const [pin, setPin] = useState("");
@@ -49,10 +58,13 @@ export default function AdminDashboard() {
     waiters: false,
     orders: false,
     refresh: false,
-    tables: false
+    tables: false,
+    stations: false
   });
   const [waiterAction, setWaiterAction] = useState(false);
   const [orderActionId, setOrderActionId] = useState("");
+  const [stationActionId, setStationActionId] = useState("");
+  const [routingSaving, setRoutingSaving] = useState(false);
   const menuPanelRef = useRef(null);
   const moreRef = useRef(null);
   const [moreOpen, setMoreOpen] = useState(false);
@@ -124,7 +136,14 @@ export default function AdminDashboard() {
 
   const refreshAll = async () => {
     setLoading((prev) => ({ ...prev, refresh: true }));
-    await Promise.all([loadWaiters(), loadMenu(), loadOrders(), loadTables()]);
+    await Promise.all([
+      loadWaiters(),
+      loadMenu(),
+      loadOrders(),
+      loadTables(),
+      loadStations(),
+      loadStationRouting()
+    ]);
     setLoading((prev) => ({ ...prev, refresh: false }));
   };
 
@@ -210,6 +229,45 @@ export default function AdminDashboard() {
       setError(err.message || "Cannot load tables");
     } finally {
       setLoading((prev) => ({ ...prev, tables: false }));
+    }
+  };
+
+  const loadStations = async () => {
+    if (!token) return;
+    setLoading((prev) => ({ ...prev, stations: true }));
+    try {
+      setError("");
+      const data = await fetchJson(
+        `${STATIONS_API}?includeInactive=true`,
+        withAuth(),
+        "Cannot load stations"
+      );
+      setStations(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error(err);
+      setStations([]);
+      setError(err.message || "Cannot load stations");
+    } finally {
+      setLoading((prev) => ({ ...prev, stations: false }));
+    }
+  };
+
+  const loadStationRouting = async () => {
+    if (!token) return;
+    try {
+      const data = await fetchJson(
+        STATION_ROUTING_API,
+        withAuth(),
+        "Cannot load station routing"
+      );
+      setStationRouting({
+        categories: data?.categories || {},
+        items: data?.items || {},
+        defaultStation: data?.defaultStation || null
+      });
+    } catch (err) {
+      console.error(err);
+      setError(err.message || "Cannot load station routing");
     }
   };
 
@@ -322,6 +380,105 @@ export default function AdminDashboard() {
     } catch (err) {
       console.error(err);
       setError(err.message || "Could not delete table");
+    }
+  };
+
+  // ========================= STATIONS ========================= //
+
+  const createStation = async (payload) => {
+    if (!payload?.name) {
+      setError("Station name is required");
+      return;
+    }
+
+    try {
+      setStationActionId("new");
+      setError("");
+      await fetchJson(
+        STATIONS_API,
+        withAuth({
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        }),
+        "Could not create station"
+      );
+      await Promise.all([loadStations(), loadStationRouting()]);
+    } catch (err) {
+      console.error(err);
+      setError(err.message || "Could not create station");
+    } finally {
+      setStationActionId("");
+    }
+  };
+
+  const updateStation = async (id, updates) => {
+    if (!id) return;
+    try {
+      setStationActionId(id);
+      setError("");
+      await fetchJson(
+        `${STATIONS_API}/${id}`,
+        withAuth({
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(updates)
+        }),
+        "Could not update station"
+      );
+      await loadStations();
+    } catch (err) {
+      console.error(err);
+      setError(err.message || "Could not update station");
+    } finally {
+      setStationActionId("");
+    }
+  };
+
+  const deleteStation = async (id, reassignTo = null) => {
+    const target = stations.find((s) => s.id === id);
+    const label = target?.name || "this station";
+    if (!window.confirm(`Delete ${label}?`)) return;
+    try {
+      setStationActionId(id);
+      setError("");
+      await fetchJson(
+        `${STATIONS_API}/${id}`,
+        withAuth({
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ reassignTo })
+        }),
+        "Could not delete station"
+      );
+      await Promise.all([loadStations(), loadStationRouting()]);
+    } catch (err) {
+      console.error(err);
+      setError(err.message || "Could not delete station");
+    } finally {
+      setStationActionId("");
+    }
+  };
+
+  const saveStationRouting = async (config) => {
+    try {
+      setRoutingSaving(true);
+      setError("");
+      await fetchJson(
+        STATION_ROUTING_API,
+        withAuth({
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(config)
+        }),
+        "Could not save routing"
+      );
+      await loadStationRouting();
+    } catch (err) {
+      console.error(err);
+      setError(err.message || "Could not save routing");
+    } finally {
+      setRoutingSaving(false);
     }
   };
 
@@ -473,19 +630,35 @@ export default function AdminDashboard() {
 
       {error ? <div className="admin-alert">{error}</div> : null}
 
-      
-        <WaitersPanel
-          waiters={waiters}
-          loading={loading.waiters}
-          waiterAction={waiterAction}
-          name={name}
-          pin={pin}
-          onNameChange={setName}
-          onPinChange={setPin}
-          onAdd={addWaiter}
-          onDelete={deleteWaiter}
-          onReload={loadWaiters}
-        />
+      <StationsPanel
+        stations={stations}
+        routing={stationRouting}
+        categories={categories}
+        loading={loading.stations}
+        savingRouting={routingSaving}
+        stationActionId={stationActionId}
+        onCreate={createStation}
+        onUpdate={updateStation}
+        onDelete={deleteStation}
+        onSaveRouting={saveStationRouting}
+        onReload={() => {
+          loadStations();
+          loadStationRouting();
+        }}
+      />
+
+      <WaitersPanel
+        waiters={waiters}
+        loading={loading.waiters}
+        waiterAction={waiterAction}
+        name={name}
+        pin={pin}
+        onNameChange={setName}
+        onPinChange={setPin}
+        onAdd={addWaiter}
+        onDelete={deleteWaiter}
+        onReload={loadWaiters}
+      />
 
       {/* Orders */}
       <OrdersPanel

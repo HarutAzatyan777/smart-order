@@ -183,7 +183,9 @@ export default function WaiterOrderCreate() {
       items: cartItems.map((item) => ({
         name: item.name,
         qty: item.qty,
-        price: item.price
+        price: item.price,
+        category: item.category,
+        menuId: item.id
       })),
       waiterId,
       waiterName

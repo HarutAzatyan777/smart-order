@@ -2,21 +2,21 @@ const express = require('express');
 const router = express.Router();
 const cors = require("cors");
 const { db } = require('../../admin');
-const { FieldValue } = require('firebase-admin/firestore');
+const { FieldValue, FieldPath } = require('firebase-admin/firestore');
+const {
+  createOrderWithItems,
+  deriveOrderStatus,
+  updateItems,
+  timestampFieldForStatus
+} = require('../services/orderService');
+const {
+  getRoutingConfig,
+  getStationsMap,
+  resolveStationForItem
+} = require('../services/stationsService');
 
 // Enable CORS for all routes inside this router
 router.use(cors({ origin: true }));
-
-// Allowed order status flow
-const ORDER_STATUSES = [
-  "new",
-  "accepted",
-  "preparing",
-  "ready",
-  "delivered",
-  "closed",
-  "cancelled"
-];
 
 // ===============================
 // Helper: Log History
@@ -37,7 +37,7 @@ async function logHistory(orderId, action, data = {}) {
 // ===============================
 router.post('/', async (req, res) => {
   try {
-    const { tableId, waiterName, items, notes } = req.body;
+    const { tableId, waiterName, waiterId, items, notes } = req.body;
 
     if (!tableId) {
       return res.status(400).send({ error: "Table is required" });
@@ -56,36 +56,37 @@ router.post('/', async (req, res) => {
       return res.status(400).send({ error: "Table is missing a number" });
     }
 
-    const orderData = {
-      table: number,
-      tableNumber: number,
-      tableId,
-      waiterName: waiterName || "Waiter",
-      items,
-      notes: notes || "",
-      status: "new",
+    const routingConfig = await getRoutingConfig();
+    const stationsMap = await getStationsMap({ includeInactive: true });
 
-      createdAt: FieldValue.serverTimestamp(),
-      timestamps: {
-        acceptedAt: null,
-        preparingAt: null,
-        readyAt: null,
-        deliveredAt: null,
-        closedAt: null,
-        cancelledAt: null
+    const normalizedItems = Array.isArray(items) ? items : [];
+
+    const result = await createOrderWithItems(
+      {
+        table: number,
+        tableNumber: number,
+        tableId,
+        waiterName: waiterName || "Waiter",
+        waiterId: waiterId || null,
+        items: normalizedItems,
+        notes: notes || ""
+      },
+      {
+        routingConfig,
+        stationsMap,
+        stationResolver: (item) => resolveStationForItem(item, routingConfig, stationsMap)
       }
-    };
+    );
 
-    const docRef = await db.collection("orders").add(orderData);
-
-    await logHistory(docRef.id, "order_created", {
+    await logHistory(result.id, "order_created", {
       table: number,
       tableId,
       waiterName
     });
 
     res.status(201).send({
-      id: docRef.id,
+      id: result.id,
+      status: result.status,
       message: "Order created successfully"
     });
 
@@ -123,15 +124,24 @@ router.get('/', async (req, res) => {
 });
 
 // ===============================
-// UPDATE ORDER STATUS
+// UPDATE ORDER STATUS (limited manual overrides)
 // ===============================
 router.patch('/:id/status', async (req, res) => {
   try {
     const { status } = req.body;
     const { id } = req.params;
 
-    if (!status || !ORDER_STATUSES.includes(status)) {
-      return res.status(400).send({ error: "Invalid or missing status" });
+    if (!status) {
+      return res.status(400).send({ error: "Missing status" });
+    }
+
+    const normalized = String(status).toLowerCase();
+    const allowedManual = new Set(["cancelled", "delivered", "closed"]);
+
+    if (!allowedManual.has(normalized)) {
+      return res.status(400).send({
+        error: "Order status is derived from items. Use item updates instead."
+      });
     }
 
     const docRef = db.collection("orders").doc(id);
@@ -141,32 +151,80 @@ router.patch('/:id/status', async (req, res) => {
       return res.status(404).send({ error: "Order not found" });
     }
 
-    const timeField = {
-      accepted: "acceptedAt",
-      preparing: "preparingAt",
-      ready: "readyAt",
-      delivered: "deliveredAt",
-      closed: "closedAt",
-      cancelled: "cancelledAt"
-    }[status] || null;
+    const data = doc.data() || {};
+    const itemIds = Array.isArray(data.items)
+      ? data.items.map((i) => i?.itemId).filter(Boolean)
+      : [];
 
-    const updates = { status };
+    // Handle cancellation separately to disable items
+    if (normalized === "cancelled") {
+      if (itemIds.length) {
+        const chunkSize = 10;
+        for (let i = 0; i < itemIds.length; i += chunkSize) {
+          const chunk = itemIds.slice(i, i + chunkSize);
+          const snap = await db
+            .collection("kitchenItems")
+            .where(FieldPath.documentId(), "in", chunk)
+            .get();
 
-    if (timeField) {
-      updates[`timestamps.${timeField}`] = FieldValue.serverTimestamp();
+          const batch = db.batch();
+          snap.docs.forEach((d) => {
+            batch.update(d.ref, {
+              active: false,
+              orderStatus: "cancelled",
+              updatedAt: FieldValue.serverTimestamp()
+            });
+          });
+          await batch.commit();
+        }
+      }
+
+      await docRef.update({
+        status: "cancelled",
+        updatedAt: FieldValue.serverTimestamp(),
+        "timestamps.cancelledAt": FieldValue.serverTimestamp()
+      });
+
+      await logHistory(id, "status_changed", {
+        oldStatus: data.status,
+        newStatus: "cancelled"
+      });
+
+      return res.status(200).send({
+        id,
+        status: "cancelled",
+        message: "Order cancelled"
+      });
+    }
+
+    // Mark all items delivered / closed
+    if (itemIds.length) {
+      await updateItems(itemIds, { status: "delivered" });
+    }
+
+    const now = FieldValue.serverTimestamp();
+    const updates = {
+      status: "delivered",
+      updatedAt: now,
+      "timestamps.deliveredAt": now
+    };
+
+    if (normalized === "closed") {
+      updates.status = "closed";
+      updates["timestamps.closedAt"] = now;
     }
 
     await docRef.update(updates);
 
     await logHistory(id, "status_changed", {
-      oldStatus: doc.data().status,
-      newStatus: status
+      oldStatus: data.status,
+      newStatus: updates.status
     });
 
     res.status(200).send({
       id,
-      status,
-      message: "Status updated"
+      status: updates.status,
+      message: "Order updated"
     });
 
   } catch (error) {

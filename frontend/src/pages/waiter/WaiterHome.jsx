@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { updateOrderStatus } from "../../api/ordersApi";
+import { deliverOrderItem } from "../../api/stationsApi";
 import useOrdersRealtime from "../../hooks/useOrdersRealtime";
 import NotificationStack from "../../components/NotificationStack";
 import useNotificationCenter from "../../hooks/useNotificationCenter";
@@ -8,6 +9,7 @@ import useOrderChangeAlerts from "../../hooks/useOrderChangeAlerts";
 import "./WaiterHome.css";
 
 const statusMeta = {
+  queued: { label: "Queued", color: "#0ea5e9" },
   new: { label: "New", color: "#0ea5e9" },
   accepted: { label: "Accepted", color: "#22c55e" },
   preparing: { label: "Preparing", color: "#f59e0b" },
@@ -16,6 +18,22 @@ const statusMeta = {
   closed: { label: "Closed", color: "#3f3f46" },
   cancelled: { label: "Cancelled", color: "#dc2626" },
   submitted: { label: "Submitted", color: "#0284c7" }
+};
+
+const deriveOrderStatusFromItems = (items = []) => {
+  if (!Array.isArray(items) || items.length === 0) return null;
+  const statuses = items.map((i) => i?.status || "queued");
+
+  const allQueued = statuses.every((s) => s === "queued");
+  const allDelivered = statuses.every((s) => s === "delivered");
+  const allReadyOrDelivered = statuses.every((s) => s === "ready" || s === "delivered");
+  const anyPreparing = statuses.includes("preparing");
+
+  if (allDelivered) return "delivered";
+  if (allReadyOrDelivered) return "ready";
+  if (anyPreparing) return "preparing";
+  if (allQueued) return "new";
+  return "preparing";
 };
 
 function getAgeLabel(date) {
@@ -42,17 +60,10 @@ function formatStatus(status) {
 }
 
 function getWaiterActions(order) {
+  const status = order.displayStatus || order.status;
   const actions = [];
 
-  if (order.status === "ready") {
-    actions.push({ label: "Mark delivered", status: "delivered" });
-  }
-
-  if (order.status === "delivered") {
-    actions.push({ label: "Close order", status: "closed", tone: "secondary" });
-  }
-
-  if (["new", "accepted"].includes(order.status)) {
+  if (["new", "accepted", "queued", "submitted"].includes(status)) {
     actions.push({ label: "Cancel order", status: "cancelled", tone: "danger" });
   }
 
@@ -74,14 +85,29 @@ export default function WaiterHome() {
   const [search, setSearch] = useState("");
   const [onlyMine, setOnlyMine] = useState(Boolean(waiterId || storedWaiterName));
   const [loadingId, setLoadingId] = useState(null);
+  const [itemActionId, setItemActionId] = useState(null);
   const [error, setError] = useState("");
   const { notifications, notify, dismiss } = useNotificationCenter();
+
+  const normalizedOrders = useMemo(
+    () =>
+      orders.map((o) => ({
+        ...o,
+        displayStatus: deriveOrderStatusFromItems(o.items) || o.status || "new"
+      })),
+    [orders]
+  );
+
+  const alertOrders = useMemo(
+    () => normalizedOrders.map((o) => ({ ...o, status: o.displayStatus })),
+    [normalizedOrders]
+  );
 
   const filteredOrders = useMemo(() => {
     const term = search.trim().toLowerCase();
     const shouldFilterByWaiter = onlyMine && (waiterId || storedWaiterName);
 
-    return orders
+    return normalizedOrders
       .filter((o) => {
         if (shouldFilterByWaiter) {
           const matchesId = waiterId && o.waiterId ? o.waiterId === waiterId : false;
@@ -117,12 +143,12 @@ export default function WaiterHome() {
         const tB = b.createdAt?.getTime?.() || 0;
         return tB - tA;
       });
-  }, [orders, search, onlyMine, waiterId, storedWaiterName]);
+  }, [normalizedOrders, search, onlyMine, waiterId, storedWaiterName]);
 
   const statusCounts = useMemo(() => {
     const counts = {};
     filteredOrders.forEach((o) => {
-      const key = o.status || "new";
+      const key = o.displayStatus || "new";
       counts[key] = (counts[key] || 0) + 1;
     });
     return counts;
@@ -163,7 +189,25 @@ export default function WaiterHome() {
     }
   };
 
-  useOrderChangeAlerts(orders, notify, formatStatus);
+  const handleDeliverItem = async (orderId, itemId) => {
+    if (!orderId || !itemId) return;
+    try {
+      setError("");
+      setItemActionId(itemId);
+      await deliverOrderItem(orderId, itemId);
+      if (typeof refreshOrders === "function") {
+        await refreshOrders();
+      }
+    } catch (err) {
+      console.error("Deliver item error:", err);
+      const msg = err?.response?.data?.error || "Could not mark item delivered.";
+      setError(msg);
+    } finally {
+      setItemActionId(null);
+    }
+  };
+
+  useOrderChangeAlerts(alertOrders, notify, formatStatus);
 
   return (
     <div className="waiter-home-page">
@@ -299,8 +343,8 @@ export default function WaiterHome() {
                     </div>
                   </div>
 
-                  <span className={`status-chip status-${o.status || "new"}`}>
-                    {formatStatus(o.status)}
+                  <span className={`status-chip status-${o.displayStatus || "new"}`}>
+                    {formatStatus(o.displayStatus)}
                   </span>
                 </div>
 
@@ -308,14 +352,33 @@ export default function WaiterHome() {
                   <p className="order-label">Items</p>
                   {Array.isArray(o.items) && o.items.length > 0 ? (
                     <ul className="order-items-list">
-                      {o.items.map((item, idx) => (
-                        <li key={idx}>
-                          <span>{item?.name || item}</span>
-                          {item?.qty ? (
-                            <span className="item-qty">x{item.qty}</span>
-                          ) : null}
-                        </li>
-                      ))}
+                      {o.items.map((item, idx) => {
+                        const itemStatus = item?.status || "queued";
+                        const itemKey = item?.itemId || item?.id || `${o.id}-${idx}`;
+                        const canDeliver = itemStatus === "ready";
+                        return (
+                          <li key={itemKey} className="order-item-row">
+                            <div className="order-item-main">
+                              <span>{item?.name || item}</span>
+                              <span className={`item-status-chip status-${itemStatus}`}>
+                                {formatStatus(itemStatus)}
+                              </span>
+                            </div>
+                            <div className="order-item-actions">
+                              {item?.qty ? <span className="item-qty">x{item.qty}</span> : null}
+                              {canDeliver ? (
+                                <button
+                                  className="primary-link"
+                                  disabled={itemActionId === itemKey}
+                                  onClick={() => handleDeliverItem(o.id, itemKey)}
+                                >
+                                  {itemActionId === itemKey ? "Sending..." : "Deliver"}
+                                </button>
+                              ) : null}
+                            </div>
+                          </li>
+                        );
+                      })}
                     </ul>
                   ) : (
                     <p className="muted">No items listed.</p>

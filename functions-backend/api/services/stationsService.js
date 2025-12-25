@@ -1,7 +1,6 @@
 const { db } = require("../../admin");
 const { FieldValue } = require("firebase-admin/firestore");
 
-const stationsCollection = db.collection("stations");
 const routingDocRef = db.collection("metadata").doc("stationRouting");
 const migrationsCollection = db.collection("metadata").doc("kitchenMigrations");
 const stationsCollection = db.collection("stations");

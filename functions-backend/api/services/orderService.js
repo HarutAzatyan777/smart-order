@@ -10,6 +10,14 @@ const { resolveStationForItem } = require("./stationsService");
 const ITEM_STATUSES = ["queued", "preparing", "ready", "delivered"];
 const ITEM_STATUS_SET = new Set(ITEM_STATUSES);
 
+const stripUndefined = (obj = {}) => {
+  const clean = {};
+  Object.keys(obj).forEach((key) => {
+    if (obj[key] !== undefined) clean[key] = obj[key];
+  });
+  return clean;
+};
+
 const timestampFieldForStatus = (status) =>
   ({
     preparing: "preparingAt",
@@ -151,7 +159,7 @@ const createOrderWithItems = async (
 
   items.forEach((item) => {
     const itemRef = db.collection("kitchenItems").doc(item.itemId);
-    batch.set(itemRef, {
+    const itemPayload = {
       ...item,
       queuedAt: item.createdAt || now,
       orderId: orderRef.id,
@@ -160,7 +168,8 @@ const createOrderWithItems = async (
       active: true,
       orderStatus: status,
       orderCreatedAt: now
-    });
+    };
+    batch.set(itemRef, stripUndefined(itemPayload));
   });
 
   await batch.commit();
@@ -246,9 +255,15 @@ const updateItems = async (itemIds = [], options = {}, meta = {}) => {
         changed = true;
         let next = { ...item, updatedAt: now };
         if (status) next.status = status;
-        if (assignedChefId !== undefined) next.assignedChefId = assignedChefId || null;
-        if (assignedChefName !== undefined) next.assignedChefName = assignedChefName || null;
-        if (batchId !== undefined) next.batchId = batchId || null;
+        if (meta.unclaim === true) {
+          next.assignedChefId = null;
+          next.assignedChefName = null;
+          next.batchId = null;
+        } else {
+          if (assignedChefId !== undefined) next.assignedChefId = assignedChefId || null;
+          if (assignedChefName !== undefined) next.assignedChefName = assignedChefName || null;
+          if (batchId !== undefined) next.batchId = batchId || null;
+        }
         next = applyStatusTimestamps(next, status, now);
         const before = { ...item };
         const nextWithTs = applyStatusTimestamps(next, status, now);
@@ -288,26 +303,41 @@ const updateItems = async (itemIds = [], options = {}, meta = {}) => {
   if (itemDocs.length) {
     const batch = db.batch();
     itemDocs.forEach(({ doc, data }) => {
-      const updatePayload = {
+      const basePayload = {
         updatedAt: now,
         orderStatus: orderStatusMap.get(data.orderId) || data.orderStatus || null
       };
 
       let nextItem = { ...data };
       if (status) nextItem.status = status;
-      if (assignedChefId !== undefined) nextItem.assignedChefId = assignedChefId || null;
-      if (assignedChefName !== undefined) nextItem.assignedChefName = assignedChefName || null;
-      if (batchId !== undefined) nextItem.batchId = batchId || null;
+      if (meta.unclaim === true) {
+        nextItem.assignedChefId = null;
+        nextItem.assignedChefName = null;
+        nextItem.batchId = null;
+      } else {
+        if (assignedChefId !== undefined) nextItem.assignedChefId = assignedChefId || null;
+        if (assignedChefName !== undefined) nextItem.assignedChefName = assignedChefName || null;
+        if (batchId !== undefined) nextItem.batchId = batchId || null;
+      }
 
       nextItem = applyStatusTimestamps(nextItem, status, now);
 
-      if (status) updatePayload.status = status;
-      if (assignedChefId !== undefined) updatePayload.assignedChefId = assignedChefId || null;
-      if (assignedChefName !== undefined) updatePayload.assignedChefName = assignedChefName || null;
-      if (batchId !== undefined) updatePayload.batchId = batchId || null;
-      if (nextItem.preparingAt && !data.preparingAt) updatePayload.preparingAt = nextItem.preparingAt;
-      if (nextItem.readyAt && !data.readyAt) updatePayload.readyAt = nextItem.readyAt;
-      if (nextItem.deliveredAt && !data.deliveredAt) updatePayload.deliveredAt = nextItem.deliveredAt;
+      if (status) basePayload.status = status;
+      if (meta.unclaim === true) {
+        basePayload.assignedChefId = null;
+        basePayload.assignedChefName = null;
+        basePayload.batchId = null;
+      } else {
+        if (assignedChefId !== undefined) basePayload.assignedChefId = assignedChefId || null;
+        if (assignedChefName !== undefined) basePayload.assignedChefName = assignedChefName || null;
+        if (batchId !== undefined) basePayload.batchId = batchId || null;
+      }
+      if (nextItem.preparingAt && !data.preparingAt) basePayload.preparingAt = nextItem.preparingAt;
+      if (nextItem.readyAt && !data.readyAt) basePayload.readyAt = nextItem.readyAt;
+      if (nextItem.deliveredAt && !data.deliveredAt) basePayload.deliveredAt = nextItem.deliveredAt;
+      if (nextItem.prepTimeMs && !data.prepTimeMs) basePayload.prepTimeMs = nextItem.prepTimeMs;
+
+      const updatePayload = stripUndefined(basePayload);
 
       batch.update(doc.ref, updatePayload);
     });
@@ -316,17 +346,19 @@ const updateItems = async (itemIds = [], options = {}, meta = {}) => {
 
   if (auditEntries.length) {
     const auditRef = db.collection("kitchenAudit").doc();
-    await auditRef.set({
-      itemIds: ids,
-      status,
-      assignedChefId,
-      assignedChefName,
-      batchId,
-      expectedStation,
-      autoUnclaimMs: meta.autoUnclaimMs || null,
-      changes: auditEntries,
-      createdAt: now
-    });
+    await auditRef.set(
+      stripUndefined({
+        itemIds: ids,
+        status,
+        assignedChefId,
+        assignedChefName,
+        batchId,
+        expectedStation,
+        autoUnclaimMs: meta.autoUnclaimMs || null,
+        changes: auditEntries,
+        createdAt: now
+      })
+    );
   }
 
   return { updated: itemDocs.length };

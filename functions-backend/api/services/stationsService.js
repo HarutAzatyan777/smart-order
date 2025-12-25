@@ -200,7 +200,7 @@ const backfillKitchenItems = async ({
       }
       if (!dryRun) {
         const ref = db.collection("kitchenItems").doc(itemId);
-        batch.set(ref, payload, { merge: true });
+        batch.set(ref, Object.fromEntries(Object.entries(payload).filter(([, v]) => v !== undefined)), { merge: true });
       }
     });
 

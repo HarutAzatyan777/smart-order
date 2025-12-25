@@ -268,13 +268,17 @@ router.patch('/stations/:slug/items/unclaim', async (req, res) => {
       return res.status(400).send({ error: "Cannot unclaim items that are ready/delivered." });
     }
 
-    const result = await updateItems(itemIds, {
-      assignedChefId: null,
-      assignedChefName: null,
-      batchId: null,
-      status: "queued",
-      expectedStation: slug
-    });
+    const result = await updateItems(
+      itemIds,
+      {
+        assignedChefId: null,
+        assignedChefName: null,
+        batchId: null,
+        status: "queued",
+        expectedStation: slug
+      },
+      { unclaim: true }
+    );
 
     res.status(200).send({
       updated: result.updated,

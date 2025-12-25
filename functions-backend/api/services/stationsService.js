@@ -4,6 +4,7 @@ const { FieldValue } = require("firebase-admin/firestore");
 const stationsCollection = db.collection("stations");
 const routingDocRef = db.collection("metadata").doc("stationRouting");
 const migrationsCollection = db.collection("metadata").doc("kitchenMigrations");
+const stationsCollection = db.collection("stations");
 
 const normalizeSlug = (value) => {
   const slug = String(value || "")
@@ -95,6 +96,25 @@ const resolveStationForItem = (item = {}, routingConfig = {}, stationsMap = {}) 
   if (station && station.active !== false) {
     return station.slug || station.id || fallback;
   }
+  return null;
+};
+
+const getStationByIdOrSlug = async (key) => {
+  if (!key) return null;
+
+  // Try direct ID
+  const byId = await stationsCollection.doc(key).get();
+  if (byId.exists) {
+    return { id: byId.id, ...byId.data() };
+  }
+
+  // Fallback slug
+  const bySlug = await stationsCollection.where("slug", "==", key).limit(1).get();
+  if (!bySlug.empty) {
+    const doc = bySlug.docs[0];
+    return { id: doc.id, ...doc.data() };
+  }
+
   return null;
 };
 
@@ -272,6 +292,7 @@ module.exports = {
   getRoutingConfig,
   saveRoutingConfig,
   resolveStationForItem,
+  getStationByIdOrSlug,
   normalizeSlug,
   pruneRoutingForDeletion,
   stationsCollection,

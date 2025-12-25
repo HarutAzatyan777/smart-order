@@ -216,6 +216,12 @@ const updateItems = async (itemIds = [], options = {}, meta = {}) => {
   const itemDocs = [];
   const updatesByOrder = new Map();
 
+  const allowedStations = Array.isArray(expectedStation)
+    ? expectedStation.filter(Boolean)
+    : expectedStation
+    ? [expectedStation]
+    : null;
+
   const chunkSize = 10; // Firestore "in" limit
   for (let i = 0; i < ids.length; i += chunkSize) {
     const chunk = ids.slice(i, i + chunkSize);
@@ -226,7 +232,7 @@ const updateItems = async (itemIds = [], options = {}, meta = {}) => {
 
     snap.docs.forEach((doc) => {
       const data = doc.data() || {};
-      if (expectedStation && data.station !== expectedStation) {
+      if (allowedStations && !allowedStations.includes(data.station)) {
         return;
       }
       const orderId = data.orderId;

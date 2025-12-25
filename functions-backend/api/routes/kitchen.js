@@ -3,7 +3,7 @@ const router = express.Router();
 const { db } = require('../../admin');
 const { FieldValue, FieldPath, Timestamp } = require('firebase-admin/firestore');
 const { updateItems } = require('../services/orderService');
-const { listStations } = require('../services/stationsService');
+const { listStations, getStationByIdOrSlug } = require('../services/stationsService');
 
 const toDate = (value) => {
   if (!value) return null;
@@ -36,6 +36,12 @@ router.get('/stations', async (_req, res) => {
 router.get('/stations/:slug/queue', async (req, res) => {
   try {
     const { slug } = req.params;
+    const station = await getStationByIdOrSlug(slug);
+    if (!station || station.active === false) {
+      return res.status(404).send({ error: "Station not found or inactive", stationKey: slug });
+    }
+
+    const stationKeys = [station.id, station.slug].filter(Boolean);
     const { status } = req.query;
 
     const statuses = status
@@ -47,7 +53,7 @@ router.get('/stations/:slug/queue', async (req, res) => {
 
     const snapshot = await db
       .collection("kitchenItems")
-      .where("station", "==", slug)
+      .where("station", "in", stationKeys)
       .get();
 
     const items = snapshot.docs
@@ -76,6 +82,11 @@ router.get('/stations/:slug/queue', async (req, res) => {
 router.get('/stations/:slug/metrics', async (req, res) => {
   try {
     const { slug } = req.params;
+    const station = await getStationByIdOrSlug(slug);
+    if (!station || station.active === false) {
+      return res.status(404).send({ error: "Station not found or inactive", stationKey: slug });
+    }
+    const stationKeys = [station.id, station.slug].filter(Boolean);
     const now = Date.now();
 
     const windows = {
@@ -87,7 +98,7 @@ router.get('/stations/:slug/metrics', async (req, res) => {
     const minStart = new Date(Math.min(...Object.values(windows)));
     const snapshot = await db
       .collection("kitchenItems")
-      .where("station", "==", slug)
+      .where("station", "in", stationKeys)
       .where("readyAt", ">=", Timestamp.fromDate(minStart))
       .orderBy("readyAt", "desc")
       .limit(800)
@@ -97,7 +108,7 @@ router.get('/stations/:slug/metrics', async (req, res) => {
 
     const queueSnap = await db
       .collection("kitchenItems")
-      .where("station", "==", slug)
+      .where("station", "in", stationKeys)
       .where("active", "==", true)
       .where("status", "in", ["queued", "preparing"])
       .get();
@@ -162,6 +173,8 @@ router.get('/stations/:slug/metrics', async (req, res) => {
 
     res.status(200).send({
       station: slug,
+      stationId: station.id,
+      stationSlug: station.slug || null,
       windows: metrics,
       queueLength,
       health,
@@ -183,6 +196,12 @@ router.patch('/stations/:slug/items/status', async (req, res) => {
     const { slug } = req.params;
     const { itemIds, status, chefId, chefName, batchId, timeoutMs } = req.body || {};
 
+    const station = await getStationByIdOrSlug(slug);
+    if (!station || station.active === false) {
+      return res.status(404).send({ error: "Station not found or inactive", stationKey: slug });
+    }
+    const stationKeys = [station.id, station.slug].filter(Boolean);
+
     if (!Array.isArray(itemIds) || itemIds.length === 0) {
       return res.status(400).send({ error: "Missing itemIds" });
     }
@@ -197,7 +216,7 @@ router.patch('/stations/:slug/items/status', async (req, res) => {
         assignedChefId: chefId,
         assignedChefName: chefName,
         batchId,
-        expectedStation: slug
+        expectedStation: stationKeys
       },
       { autoUnclaimMs: timeoutMs }
     );
@@ -220,6 +239,12 @@ router.patch('/stations/:slug/items/claim', async (req, res) => {
     const { slug } = req.params;
     const { itemIds, chefId, chefName, batchId } = req.body || {};
 
+    const station = await getStationByIdOrSlug(slug);
+    if (!station || station.active === false) {
+      return res.status(404).send({ error: "Station not found or inactive", stationKey: slug });
+    }
+    const stationKeys = [station.id, station.slug].filter(Boolean);
+
     if (!Array.isArray(itemIds) || itemIds.length === 0) {
       return res.status(400).send({ error: "Missing itemIds" });
     }
@@ -228,7 +253,7 @@ router.patch('/stations/:slug/items/claim', async (req, res) => {
       assignedChefId: chefId,
       assignedChefName: chefName,
       batchId,
-      expectedStation: slug
+      expectedStation: stationKeys
     });
 
     res.status(200).send({
@@ -249,6 +274,12 @@ router.patch('/stations/:slug/items/unclaim', async (req, res) => {
   try {
     const { slug } = req.params;
     const { itemIds, force } = req.body || {};
+
+    const station = await getStationByIdOrSlug(slug);
+    if (!station || station.active === false) {
+      return res.status(404).send({ error: "Station not found or inactive", stationKey: slug });
+    }
+    const stationKeys = [station.id, station.slug].filter(Boolean);
 
     if (!Array.isArray(itemIds) || itemIds.length === 0) {
       return res.status(400).send({ error: "Missing itemIds" });
@@ -275,7 +306,7 @@ router.patch('/stations/:slug/items/unclaim', async (req, res) => {
         assignedChefName: null,
         batchId: null,
         status: "queued",
-        expectedStation: slug
+        expectedStation: stationKeys
       },
       { unclaim: true }
     );

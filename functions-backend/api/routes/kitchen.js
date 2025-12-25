@@ -96,24 +96,33 @@ router.get('/stations/:slug/metrics', async (req, res) => {
     };
 
     const minStart = new Date(Math.min(...Object.values(windows)));
-    const snapshot = await db
-      .collection("kitchenItems")
-      .where("station", "in", stationKeys)
-      .where("readyAt", ">=", Timestamp.fromDate(minStart))
-      .orderBy("readyAt", "desc")
-      .limit(800)
-      .get();
+    let rows = [];
+    let queueLength = 0;
 
-    const rows = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    try {
+      const snapshot = await db
+        .collection("kitchenItems")
+        .where("station", "in", stationKeys)
+        .where("readyAt", ">=", Timestamp.fromDate(minStart))
+        .orderBy("readyAt", "desc")
+        .limit(800)
+        .get();
+      rows = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    } catch (err) {
+      console.error("Station metrics query error:", slug, err.message);
+    }
 
-    const queueSnap = await db
-      .collection("kitchenItems")
-      .where("station", "in", stationKeys)
-      .where("active", "==", true)
-      .where("status", "in", ["queued", "preparing"])
-      .get();
-
-    const queueLength = queueSnap.size;
+    try {
+      const queueSnap = await db
+        .collection("kitchenItems")
+        .where("station", "in", stationKeys)
+        .where("active", "==", true)
+        .where("status", "in", ["queued", "preparing"])
+        .get();
+      queueLength = queueSnap.size;
+    } catch (err) {
+      console.error("Station queue length query error:", slug, err.message);
+    }
 
     const buildMetrics = (startMs) => {
       let sum = 0;

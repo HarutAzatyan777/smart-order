@@ -65,6 +65,8 @@ const PANEL_META = {
 const PANEL_IDS = Object.keys(PANEL_META);
 const ACCENT_COLOR = "#2563eb";
 const ACCENT_BG = "#f8fafc";
+const DISABLE_ANALYTICS_API =
+  String(import.meta?.env?.VITE_DISABLE_ANALYTICS_API || "").toLowerCase() === "true";
 
 const NAV_ITEMS = [
   { id: "console", label: "Admin Console", hint: "Overview / stats", icon: "AC" },
@@ -296,6 +298,12 @@ const [tableLabelInput, setTableLabelInput] = useState("");
 
   const loadAnalytics = async (range = analyticsRange) => {
     if (!token) return;
+    if (DISABLE_ANALYTICS_API) {
+      setAnalytics(getMockAnalytics(range));
+      setAnalyticsRange(range);
+      setAnalyticsError("Analytics API disabled; using sample data.");
+      return;
+    }
     setLoading((prev) => ({ ...prev, analytics: true }));
     try {
       setAnalyticsError("");

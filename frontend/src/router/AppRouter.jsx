@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import Header from "../components/header/Header";
+import FloatingContact from "../components/FloatingContact/FloatingContact";
 import { initAnalytics, setAnalyticsContext, trackPageView } from "../utils/analytics";
 
 // HOME
@@ -40,6 +41,7 @@ export default function AppRouter() {
 function RouterShell() {
   const location = useLocation();
   const hideHeader = location.pathname.startsWith("/menu");
+  const hideFloatingContact = location.pathname.startsWith("/menu");
   const roleForPath = (pathname) => {
     if (pathname.startsWith("/waiter")) return "waiter";
     if (pathname.startsWith("/kitchen")) return "kitchen";
@@ -67,6 +69,7 @@ function RouterShell() {
   return (
     <>
       {!hideHeader && <Header />}
+      {!hideFloatingContact && <FloatingContact />}
       <Routes>
         {/* HOME */}
         <Route path="/" element={<Home />} />

@@ -10,6 +10,7 @@ import useNotificationCenter from "../../hooks/useNotificationCenter";
 import useInterval from "../../hooks/useInterval";
 import { unclaimStationItems } from "../../api/stationsApi";
 import useStationMetrics from "../../hooks/useStationMetrics";
+import { setAnalyticsContext, trackOrderStage } from "../../utils/analytics";
 import "./KitchenDashboard.css";
 
 const COLUMNS = [
@@ -130,6 +131,10 @@ export default function KitchenDashboard() {
 
   const { notifications, notify, dismiss } = useNotificationCenter();
 
+  useEffect(() => {
+    setAnalyticsContext({ userRole: "kitchen", tableNumber: null });
+  }, []);
+
   const activeStations = useMemo(
     () => stations.filter((s) => s.active !== false),
     [stations]
@@ -224,6 +229,16 @@ export default function KitchenDashboard() {
         `${group.totalQty} x ${group.name} moved to ${nextStatus}.`,
         nextStatus === "ready" ? "success" : "info"
       );
+      const tableEntries = Array.from(group.tables?.values?.() || []);
+      const tableNumber = tableEntries.length === 1 ? tableEntries[0].table : undefined;
+      trackOrderStage(nextStatus, {
+        station: selectedStation.slug,
+        batch_id: group.key,
+        item_name: group.name,
+        quantity: group.totalQty,
+        table_number: tableNumber,
+        chef_name: chefName || undefined
+      });
       refreshQueue();
     } catch (err) {
       console.error("Batch action error:", err);
@@ -305,6 +320,14 @@ export default function KitchenDashboard() {
         chefName: chefName || undefined,
         chefId: chefName || undefined,
         batchId: item.batchId || item.name
+      });
+      trackOrderStage(nextStatus, {
+        station: selectedStation.slug,
+        item_id: item.id,
+        item_name: item.name,
+        quantity: item.qty || 1,
+        table_number: item.table || item.tableNumber || item.tableId || undefined,
+        chef_name: chefName || undefined
       });
       refreshQueue();
     } catch (err) {

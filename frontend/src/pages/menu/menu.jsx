@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useLocation } from "react-router-dom";
 import useMenu from "../../hooks/useMenu";
 import useMenuLanguage from "../../hooks/useMenuLanguage";
 import {
@@ -8,6 +9,7 @@ import {
   localizeMenuItem
 } from "../../utils/menuI18n";
 import { orderIndex } from "../../utils/categoryOrder";
+import { setAnalyticsContext, trackEvent } from "../../utils/analytics";
 import "./menu.css";
 
 const PLUS_ICON =
@@ -18,6 +20,7 @@ const SWIPE_ICON =
   'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white"><path d="M7 10a5 5 0 1 1 10 0v1h1.5a3.5 3.5 0 0 1 0 7h-8.44l.7 2.1a1 1 0 0 1-1.9.64l-1.1-3.3A2 2 0 0 1 9.7 15H13v-5a3 3 0 1 0-6 0v1.5a1 1 0 1 1-2 0V10Z"/></svg>';
 
 export default function MenuPage() {
+  const routeLocation = useLocation();
   const { language, setLanguage } = useMenuLanguage();
   const { menu, loading, error, refresh, categories } = useMenu(language);
   const [search, setSearch] = useState("");
@@ -31,6 +34,21 @@ export default function MenuPage() {
   const [detailHintSeen, setDetailHintSeen] = useState(false);
   const [detailHintVisible, setDetailHintVisible] = useState(false);
   const touchStartXRef = useRef(0);
+  const menuViewLoggedRef = useRef(false);
+  const orderStartedRef = useRef(false);
+  const lastCategoryRef = useRef(null);
+
+  const searchParams = useMemo(
+    () => new URLSearchParams(routeLocation.search),
+    [routeLocation.search]
+  );
+
+  const tableFromQuery =
+    searchParams.get("table") ||
+    searchParams.get("table_number") ||
+    searchParams.get("tableId") ||
+    searchParams.get("t");
+  const locationFromQuery = searchParams.get("location");
 
   const localizedMenu = useMemo(
     () => menu.map((item) => localizeMenuItem(item, language)),
@@ -138,6 +156,26 @@ export default function MenuPage() {
     setOrdered((prev) => {
       const currentQty = prev[key]?.qty || 0;
       const nextQty = Math.max(0, currentQty + delta);
+      const nextValue = (Number(item.price) || 0) * nextQty;
+
+      if (delta > 0) {
+        if (!orderStartedRef.current) {
+          trackEvent("order_started", {
+            language,
+            order_value: nextValue || undefined
+          });
+          orderStartedRef.current = true;
+        }
+        trackEvent("item_added", {
+          item_id: item.id || item.sku || item.name,
+          item_name: item.displayName || item.name,
+          category: item.displayCategory || item.category || "Uncategorized",
+          price: Number(item.price) || 0,
+          quantity: nextQty,
+          order_value: nextValue || undefined,
+          language
+        });
+      }
 
       if (nextQty === 0) {
         const { [key]: _removed, ...rest } = prev;
@@ -173,6 +211,33 @@ export default function MenuPage() {
     categoryOptions.find((item) => item.key === key)?.label || key;
 
   useEffect(() => {
+    setAnalyticsContext({
+      userRole: "guest",
+      tableNumber: tableFromQuery || null,
+      location: locationFromQuery || undefined
+    });
+  }, [tableFromQuery, locationFromQuery]);
+
+  useEffect(() => {
+    if (loading || menuViewLoggedRef.current) return;
+    trackEvent("menu_viewed", {
+      language,
+      menu_count: menu.length,
+      category_count: categoryOptions.length
+    });
+    menuViewLoggedRef.current = true;
+  }, [loading, menu.length, categoryOptions.length, language]);
+
+  useEffect(() => {
+    if (category === null || lastCategoryRef.current === category) return;
+    trackEvent("category_viewed", {
+      category,
+      category_label: getCategoryLabel(category)
+    });
+    lastCategoryRef.current = category;
+  }, [category, categoryOptions]);
+
+  useEffect(() => {
     const handleScroll = () => {
       setShowFloatingFilters(window.scrollY > 220);
     };
@@ -194,6 +259,16 @@ export default function MenuPage() {
   const openDetail = (key) => {
     const idx = detailList.findIndex((d) => d.key === key);
     if (idx >= 0) {
+      const selected = detailList[idx]?.item;
+      if (selected) {
+        trackEvent("item_viewed", {
+          item_id: selected.id || selected.sku || selected.name,
+          item_name: selected.displayName || selected.name,
+          category: selected.displayCategory || selected.category || "Uncategorized",
+          price: Number(selected.price) || 0,
+          language
+        });
+      }
       setDetailIndex(idx);
       if (!detailHintSeen) {
         setDetailHintVisible(true);

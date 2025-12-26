@@ -1,5 +1,7 @@
+import { useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import Header from "../components/header/Header";
+import { initAnalytics, setAnalyticsContext, trackPageView } from "../utils/analytics";
 
 // HOME
 import Home from "../pages/home/Home";
@@ -37,6 +39,29 @@ export default function AppRouter() {
 function RouterShell() {
   const location = useLocation();
   const hideHeader = location.pathname.startsWith("/menu");
+  const roleForPath = (pathname) => {
+    if (pathname.startsWith("/waiter")) return "waiter";
+    if (pathname.startsWith("/kitchen")) return "kitchen";
+    if (pathname.startsWith("/admin")) return "admin";
+    return "guest";
+  };
+
+  useEffect(() => {
+    initAnalytics();
+    if (typeof window !== "undefined") {
+      setAnalyticsContext({ location: window.location.hostname });
+    }
+  }, []);
+
+  useEffect(() => {
+    const userRole = roleForPath(location.pathname);
+    setAnalyticsContext({ userRole });
+    trackPageView({
+      page_path: location.pathname + location.search,
+      page_location: typeof window !== "undefined" ? window.location.href : undefined,
+      page_title: typeof document !== "undefined" ? document.title : undefined
+    });
+  }, [location]);
 
   return (
     <>

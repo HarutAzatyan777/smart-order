@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import useTables from "../../hooks/useTables";
+import { setAnalyticsContext, trackEvent } from "../../utils/analytics";
 import "./WaiterSelectTable.css";
 
 export default function WaiterSelectTable() {
@@ -30,6 +31,10 @@ export default function WaiterSelectTable() {
   }, [navigate, waiterId, waiterName]);
 
   useEffect(() => {
+    setAnalyticsContext({ userRole: "waiter" });
+  }, []);
+
+  useEffect(() => {
     if (location.state?.error) {
       sessionStorage.removeItem("selectedTableId");
       localStorage.removeItem("selectedTableId");
@@ -44,6 +49,13 @@ export default function WaiterSelectTable() {
       setLocalError("Selected table is unavailable. Please choose another table.");
       return;
     }
+    setAnalyticsContext({ userRole: "waiter", tableNumber: table.number || null });
+    trackEvent("order_started", {
+      table_number: table.number,
+      location: table.label || undefined,
+      waiter_id: waiterId || undefined,
+      waiter_name: waiterName
+    });
     sessionStorage.setItem("selectedTableId", table.id);
     localStorage.setItem("selectedTableId", table.id);
     navigate("/waiter/create", { state: { tableId: table.id } });

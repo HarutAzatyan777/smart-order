@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { createOrder } from "../../api/ordersApi";
 import useMenu from "../../hooks/useMenu";
@@ -9,6 +9,7 @@ import {
   formatCurrencyLocalized,
   localizeMenuItem
 } from "../../utils/menuI18n";
+import { setAnalyticsContext, trackEvent } from "../../utils/analytics";
 import "./WaiterOrderCreate.css";
 import "../menu/menu.css";
 
@@ -33,6 +34,7 @@ export default function WaiterOrderCreate() {
   const [modalItem, setModalItem] = useState(null);
   const [isSummaryOpen, setIsSummaryOpen] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const orderStartedRef = useRef(false);
 
   const navigate = useNavigate();
 
@@ -77,6 +79,13 @@ export default function WaiterOrderCreate() {
     }
   }, [tableId, selectedTable, tablesLoading, navigate]);
 
+  useEffect(() => {
+    setAnalyticsContext({
+      userRole: "waiter",
+      tableNumber: selectedTable?.number || null
+    });
+  }, [selectedTable]);
+
   const getItemKey = (item) => item?.id || item?.sku || item?.name;
 
   const filteredMenu = useMemo(() => {
@@ -116,10 +125,36 @@ export default function WaiterOrderCreate() {
     const key = getItemKey(item);
     if (!key) return;
 
-    setCart((prev) => ({
-      ...prev,
-      [key]: { ...item, id: key, qty: (prev[key]?.qty || 0) + 1 }
-    }));
+    setCart((prev) => {
+      const currentQty = prev[key]?.qty || 0;
+      const nextQty = currentQty + 1;
+      const orderValue = (Number(item.price) || 0) * nextQty;
+
+      if (!orderStartedRef.current) {
+        trackEvent("order_started", {
+          table_number: selectedTable?.number,
+          waiter_name: waiterName,
+          order_value: orderValue || undefined
+        });
+        orderStartedRef.current = true;
+      }
+
+      trackEvent("item_added", {
+        item_id: item.id || item.sku || item.name,
+        item_name: item.displayName || item.name,
+        category: item.displayCategory || item.category || "Uncategorized",
+        price: Number(item.price) || 0,
+        quantity: nextQty,
+        order_value: orderValue || undefined,
+        table_number: selectedTable?.number,
+        waiter_name: waiterName
+      });
+
+      return {
+        ...prev,
+        [key]: { ...item, id: key, qty: nextQty }
+      };
+    });
   };
 
   const decreaseQty = (itemId) => {
@@ -194,6 +229,13 @@ export default function WaiterOrderCreate() {
     try {
       setSubmitting(true);
       await createOrder(payload);
+      trackEvent("order_submitted", {
+        order_value: subtotal,
+        table_number: selectedTable?.number,
+        waiter_id: waiterId,
+        waiter_name: waiterName,
+        items_count: cartItems.length
+      });
       sessionStorage.removeItem("selectedTableId");
       localStorage.removeItem("selectedTableId");
       navigate("/waiter/home");

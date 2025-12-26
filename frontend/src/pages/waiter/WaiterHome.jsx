@@ -6,6 +6,7 @@ import useOrdersRealtime from "../../hooks/useOrdersRealtime";
 import NotificationStack from "../../components/NotificationStack";
 import useNotificationCenter from "../../hooks/useNotificationCenter";
 import useOrderChangeAlerts from "../../hooks/useOrderChangeAlerts";
+import { setAnalyticsContext, trackOrderStage } from "../../utils/analytics";
 import "./WaiterHome.css";
 
 const statusMeta = {
@@ -81,6 +82,10 @@ export default function WaiterHome() {
   const storedWaiterName = localStorage.getItem("waiterName") || "";
   const waiterId = localStorage.getItem("waiterId") || "";
   const displayWaiterName = storedWaiterName || "Waiter";
+
+  useEffect(() => {
+    setAnalyticsContext({ userRole: "waiter", tableNumber: null });
+  }, []);
 
   const [search, setSearch] = useState("");
   const [onlyMine, setOnlyMine] = useState(Boolean(waiterId || storedWaiterName));
@@ -189,12 +194,25 @@ export default function WaiterHome() {
     }
   };
 
-  const handleDeliverItem = async (orderId, itemId) => {
+  const handleDeliverItem = async (order, item, fallbackId) => {
+    const orderId = order?.id;
+    const itemId = item?.itemId || item?.id || fallbackId;
+    const itemName = item?.name || (typeof item === "string" ? item : undefined);
+    const qty = item?.qty || undefined;
     if (!orderId || !itemId) return;
     try {
       setError("");
       setItemActionId(itemId);
       await deliverOrderItem(orderId, itemId);
+      trackOrderStage("order_delivered", {
+        order_id: orderId,
+        table_number: order?.table || order?.tableNumber,
+        item_id: itemId,
+        item_name: itemName,
+        quantity: qty,
+        waiter_id: waiterId || undefined,
+        waiter_name: storedWaiterName || undefined
+      });
       if (typeof refreshOrders === "function") {
         await refreshOrders();
       }
@@ -367,10 +385,10 @@ export default function WaiterHome() {
                             <div className="order-item-actions">
                               {item?.qty ? <span className="item-qty">x{item.qty}</span> : null}
                               {canDeliver ? (
-                                <button
+                              <button
                                   className="primary-link"
                                   disabled={itemActionId === itemKey}
-                                  onClick={() => handleDeliverItem(o.id, itemKey)}
+                                  onClick={() => handleDeliverItem(o, item, itemKey)}
                                 >
                                   {itemActionId === itemKey ? "Sending..." : "Deliver"}
                                 </button>

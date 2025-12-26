@@ -5,9 +5,17 @@ const DEFAULT_LOCATION =
   import.meta?.env?.VITE_GA_LOCATION ||
   (typeof window !== "undefined" ? window.location.hostname : "production");
 const DEFAULT_CURRENCY = import.meta?.env?.VITE_GA_CURRENCY || "USD";
+const CONSENT_STORAGE_KEY = "smart-order-consent-v2";
+const CONSENT_DEFAULTS = {
+  analytics_storage: "denied",
+  ad_storage: "denied",
+  ad_user_data: "denied",
+  ad_personalization: "denied"
+};
 
 let initialized = false;
 let scriptInjected = false;
+let consentBootstrapped = false;
 
 const analyticsContext = {
   restaurantId: DEFAULT_RESTAURANT_ID,
@@ -49,22 +57,75 @@ function ensureGtag() {
   return true;
 }
 
+export function ensureConsentDefaults() {
+  if (typeof window === "undefined") return;
+  if (consentBootstrapped) return;
+  ensureGtag();
+  window.gtag("consent", "default", { ...CONSENT_DEFAULTS });
+  consentBootstrapped = true;
+}
+
+export function getStoredConsent() {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(CONSENT_STORAGE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+export function applyStoredConsent() {
+  const stored = getStoredConsent();
+  if (!stored?.choice) return;
+  updateConsent(stored.choice, { silent: true });
+}
+
+export function updateConsent(choice, { silent } = {}) {
+  if (typeof window === "undefined") return;
+  ensureConsentDefaults();
+
+  const map = {
+    accept_all: {
+      analytics_storage: "granted",
+      ad_storage: "granted",
+      ad_user_data: "granted",
+      ad_personalization: "granted"
+    },
+    analytics_only: {
+      analytics_storage: "granted",
+      ad_storage: "denied",
+      ad_user_data: "denied",
+      ad_personalization: "denied"
+    },
+    reject: { ...CONSENT_DEFAULTS }
+  };
+
+  const payload = map[choice] || { ...CONSENT_DEFAULTS };
+  window.gtag("consent", "update", payload);
+
+  if (!silent) {
+    try {
+      localStorage.setItem(
+        CONSENT_STORAGE_KEY,
+        JSON.stringify({ choice, updatedAt: Date.now() })
+      );
+    } catch (err) {
+      console.error("Consent storage error:", err);
+    }
+  }
+}
+
 export function initAnalytics() {
   if (initialized) return;
+  ensureConsentDefaults();
+  applyStoredConsent();
+
   const ok = ensureGtag();
   if (!ok) return;
 
   window.gtag("js", new Date());
-
-  // Consent Mode v2 defaults: allow analytics, block ads/personalization unless explicitly enabled later.
-  window.gtag("consent", "default", {
-    ad_storage: "denied",
-    ad_user_data: "denied",
-    ad_personalization: "denied",
-    analytics_storage: "granted",
-    functionality_storage: "granted",
-    security_storage: "granted"
-  });
 
   window.gtag("config", GA_MEASUREMENT_ID, {
     send_page_view: false,
@@ -136,3 +197,6 @@ export const analyticsIds = {
 export function getAnalyticsContext() {
   return { ...analyticsContext };
 }
+
+// Initialize consent defaults as early as possible on import.
+ensureConsentDefaults();

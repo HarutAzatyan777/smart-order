@@ -9,6 +9,7 @@ import OrdersPanel from "./components/OrdersPanel";
 import TablesPanel from "./components/TablesPanel";
 import StationsPanel from "./components/StationsPanel";
 import AdminMenu from "./AdminMenu";
+import AnalyticsPanel from "./components/AnalyticsPanel";
 import {
   ACTIVE_STATUSES,
   CLOSED_STATUSES,
@@ -49,6 +50,11 @@ const PANEL_META = {
     title: "Table management",
     description: "Create, activate, or retire tables used in the dining room."
   },
+  analytics: {
+    label: "Analytics",
+    title: "Performance insights",
+    description: "Orders, revenue, menu conversion, and kitchen speed in one view."
+  },
   menu: {
     label: "Admin menu",
     title: "Full menu workspace",
@@ -66,6 +72,7 @@ const NAV_ITEMS = [
   { id: "team", label: "Team", hint: "Waiters", icon: "TM" },
   { id: "orders", label: "Orders", hint: "Order review", icon: "OR" },
   { id: "tables", label: "Tables", hint: "Table management", icon: "TB" },
+  { id: "analytics", label: "Analytics", hint: "Insights & KPIs", icon: "AN" },
   { id: "menu", label: "Admin menu", hint: "Full menu workspace", icon: "MN" }
 ];
 
@@ -84,6 +91,7 @@ export default function AdminDashboard() {
   const TABLES_API = apiUrl("admin/tables");
   const STATIONS_API = apiUrl("admin/stations");
   const STATION_ROUTING_API = apiUrl("admin/stations/routing/map");
+  const ANALYTICS_API = apiUrl("admin/analytics/summary");
 
   const token = localStorage.getItem("adminToken");
 
@@ -100,6 +108,10 @@ export default function AdminDashboard() {
   const [name, setName] = useState("");
   const [pin, setPin] = useState("");
 
+  const [analytics, setAnalytics] = useState(null);
+  const [analyticsRange, setAnalyticsRange] = useState("7d");
+  const [analyticsError, setAnalyticsError] = useState("");
+
   const [orderSearch, setOrderSearch] = useState("");
 const [orderFilter, setOrderFilter] = useState("active");
 const [tableNumberInput, setTableNumberInput] = useState("");
@@ -111,7 +123,8 @@ const [tableLabelInput, setTableLabelInput] = useState("");
     orders: false,
     refresh: false,
     tables: false,
-    stations: false
+    stations: false,
+    analytics: false
   });
   const [waiterAction, setWaiterAction] = useState(false);
   const [orderActionId, setOrderActionId] = useState("");
@@ -132,6 +145,7 @@ const [tableLabelInput, setTableLabelInput] = useState("");
       loadStations(),
       loadStationRouting()
     ]);
+    await loadAnalytics(analyticsRange);
     setLoading((prev) => ({ ...prev, refresh: false }));
   };
 
@@ -277,6 +291,27 @@ const [tableLabelInput, setTableLabelInput] = useState("");
     } catch (err) {
       console.error(err);
       setError(err.message || "Cannot load station routing");
+    }
+  };
+
+  const loadAnalytics = async (range = analyticsRange) => {
+    if (!token) return;
+    setLoading((prev) => ({ ...prev, analytics: true }));
+    try {
+      setAnalyticsError("");
+      const data = await fetchJson(
+        `${ANALYTICS_API}?range=${encodeURIComponent(range)}`,
+        withAuth(),
+        "Cannot load analytics"
+      );
+      setAnalytics(data);
+      setAnalyticsRange(range);
+    } catch (err) {
+      console.error(err);
+      setAnalyticsError(err.message || "Cannot load analytics");
+      setAnalytics(getMockAnalytics(range));
+    } finally {
+      setLoading((prev) => ({ ...prev, analytics: false }));
     }
   };
 
@@ -642,6 +677,17 @@ const [tableLabelInput, setTableLabelInput] = useState("");
             onReload={loadTables}
           />
         );
+      case "analytics":
+        return (
+          <AnalyticsPanel
+            analytics={analytics}
+            loading={loading.analytics}
+            error={analyticsError}
+            activeRange={analyticsRange}
+            onRangeChange={loadAnalytics}
+            onReload={() => loadAnalytics(analyticsRange)}
+          />
+        );
       case "menu":
         return (
           <AdminMenu embedded />
@@ -827,4 +873,70 @@ function AdminSidebar({ items, active, onSelect, open }) {
       </nav>
     </aside>
   );
+}
+
+function getMockAnalytics(range = "7d") {
+  const now = new Date();
+  const labels = Array.from({ length: range === "30d" ? 14 : 7 }).map((_, idx) => {
+    const d = new Date(now);
+    d.setDate(now.getDate() - (range === "30d" ? (13 - idx) * 2 : 6 - idx));
+    return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  });
+  const ordersOverTime = labels.map((label, idx) => ({
+    label,
+    value: Math.round(40 + Math.sin(idx) * 15 + idx * 2)
+  }));
+
+  return {
+    range,
+    kpis: {
+      ordersToday: 86,
+      orders7d: 540,
+      orders30d: 2180,
+      revenue: 1840000,
+      aov: 34500,
+      peakHour: "19:00",
+      cancellationRate: 0.04,
+      prepTimeAvg: 11
+    },
+    ordersOverTime,
+    peakHours: [
+      { label: "11:00", value: 22 },
+      { label: "13:00", value: 48 },
+      { label: "15:00", value: 30 },
+      { label: "17:00", value: 38 },
+      { label: "19:00", value: 72 },
+      { label: "21:00", value: 55 }
+    ],
+    statusBreakdown: [
+      { label: "New", value: 42 },
+      { label: "Preparing", value: 38 },
+      { label: "Ready", value: 21 },
+      { label: "Delivered", value: 318 },
+      { label: "Cancelled", value: 8 }
+    ],
+    deviceBreakdown: [
+      { label: "QR / Guest", value: 62 },
+      { label: "Waiter Tablet", value: 34 },
+      { label: "Admin", value: 4 }
+    ],
+    topItems: [
+      { name: "Margherita Pizza", orders: 182, views: 340, revenue: 980000 },
+      { name: "Caesar Salad", orders: 143, views: 240, revenue: 515000 },
+      { name: "BBQ Wings", orders: 131, views: 260, revenue: 472000 }
+    ],
+    lowItems: [
+      { name: "Gazpacho", orders: 9, views: 68, revenue: 42000 },
+      { name: "Tiramisu", orders: 12, views: 92, revenue: 88000 }
+    ],
+    viewedNotOrdered: [
+      { name: "Truffle Fries", views: 210, orders: 24 },
+      { name: "Vegan Burger", views: 160, orders: 18 }
+    ],
+    tables: [
+      { table: "Patio 1", orders: 42, revenue: 280000 },
+      { table: "Patio 2", orders: 38, revenue: 242000 },
+      { table: "Hall A", orders: 56, revenue: 368000 }
+    ]
+  };
 }

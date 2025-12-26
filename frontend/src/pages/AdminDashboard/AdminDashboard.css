@@ -452,6 +452,251 @@
   font-size: 13px;
 }
 
+/* ===========================
+   Analytics panel
+=========================== */
+.analytics-panel .kpi-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.insights-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+
+.insight-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.insight-card.wide {
+  grid-column: span 2;
+  min-height: 220px;
+}
+
+@media (max-width: 1100px) {
+  .insight-card.wide {
+    grid-column: span 1;
+  }
+}
+
+.insight-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.range-toggle {
+  display: inline-flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.range-toggle .ghost-btn.small.is-active {
+  background: #0f172a;
+  color: #ffffff;
+  border-color: #0f172a;
+}
+
+.line-area {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+  min-height: 180px;
+}
+
+.line-area-bar {
+  flex: 1;
+  display: grid;
+  gap: 6px;
+  justify-items: center;
+}
+
+.line-area-fill {
+  width: 100%;
+  border-radius: 10px 10px 4px 4px;
+  background: linear-gradient(180deg, #2563eb 0%, #0ea5e9 100%);
+  min-height: 6px;
+}
+
+.line-area-label {
+  font-size: 11px;
+  color: #64748b;
+}
+
+.mini-bars {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.mini-bar {
+  flex: 1;
+  display: grid;
+  gap: 6px;
+  justify-items: center;
+}
+
+.mini-bar-fill {
+  width: 100%;
+  border-radius: 8px 8px 4px 4px;
+  background: #0ea5e9;
+}
+
+.mini-bar-label {
+  font-size: 11px;
+  color: #64748b;
+}
+
+.progress-row {
+  display: grid;
+  gap: 6px;
+}
+
+.progress-header {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+}
+
+.progress-track {
+  width: 100%;
+  height: 8px;
+  background: #e2e8f0;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #0ea5e9, #2563eb);
+  border-radius: 999px;
+}
+
+.chips-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+}
+
+.chip-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.insight-table {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.insight-table-head,
+.insight-table-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  padding: 10px;
+}
+
+.insight-table-head {
+  background: #f8fafc;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.insight-table-row:nth-child(odd) {
+  background: #ffffff;
+}
+
+.insight-table-row:nth-child(even) {
+  background: #f9fafb;
+}
+
+.empty-insight {
+  padding: 12px;
+  color: #64748b;
+  background: #f8fafc;
+  border: 1px dashed #e2e8f0;
+  border-radius: 10px;
+}
+
+.highlight-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+}
+
+.highlight-tile {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 10px;
+  background: #f8fafc;
+  display: grid;
+  gap: 6px;
+}
+
+.consent-admin-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.consent-admin-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.consent-copy-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px;
+}
+
+.consent-copy-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 10px;
+  display: grid;
+  gap: 6px;
+}
+
+.consent-copy-card input,
+.consent-copy-card textarea {
+  width: 100%;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: #fff;
+  font-family: inherit;
+}
+
+.consent-copy-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .admin-alert {
   margin: 14px 0;
   padding: 12px;

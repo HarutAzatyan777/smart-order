@@ -14,13 +14,26 @@ export default function Home() {
             Run your restaurant in real time. Keep tables moving, tickets clear,
             and the kitchen focused with a single source of truth.
           </p>
-          <div className="cta-row">
-            <Link to="/waiter" className="btn primary">
+          <div className="cta-row hero-cta">
+            <a href="tel:+37496454503" className="btn primary request-demo">
+              Request Demo
+            </a>
+            <Link to="/contact" className="btn ghost">
+              Talk to the team
+            </Link>
+          </div>
+          <div className="cta-row cta-secondary">
+            <Link to="/waiter" className="btn ghost">
               Open Waiter Panel
             </Link>
             <Link to="/kitchen" className="btn ghost">
               View Kitchen Dashboard
             </Link>
+          </div>
+          <div className="trust-row">
+            <span>Free demo — no obligation</span>
+            <span>Fast setup &amp; onboarding</span>
+            <span>Designed for real restaurant workflows</span>
           </div>
           <div className="stat-row">
             <div className="stat">
@@ -158,6 +171,34 @@ export default function Home() {
             </Link>
             <Link to="/admin" className="btn ghost">
               Configure admin
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      <section className="contact-section">
+        <div className="contact-card">
+          <div>
+            <p className="pill soft">Talk with us</p>
+            <h3>Ready to modernize your restaurant operations?</h3>
+            <p className="contact-copy">
+              Get Smart Order set up quickly with full support and a free demo. One call or message gets it moving.
+            </p>
+            <div className="trust-row">
+              <span>Free demo — no obligation</span>
+              <span>Fast setup &amp; onboarding</span>
+              <span>Designed for real restaurant workflows</span>
+            </div>
+          </div>
+          <div className="contact-actions">
+            <a href="tel:+37496454503" className="btn primary">
+              Book a Free Demo
+            </a>
+            <a href="https://wa.me/37496454503" target="_blank" rel="noreferrer" className="btn ghost">
+              Contact via WhatsApp
+            </a>
+            <Link to="/contact" className="btn muted">
+              Prefer a quick form?
             </Link>
           </div>
         </div>

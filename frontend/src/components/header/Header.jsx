@@ -5,7 +5,7 @@ import ThemeToggle from "../theme/ThemeToggle";
 
 const navLinks = [
   { to: "/", label: "Home", end: true },
-  { to: "/menu", label: "Menu" },
+  { to: "/menu", label: "Menu", newTab: true },
   { to: "/waiter", label: "Waiter Panel" },
   { to: "/kitchen", label: "Kitchen" },
   { to: "/admin", label: "Admin" }
@@ -57,11 +57,14 @@ export default function Header() {
           data-open={isMenuOpen}
         >
           <nav className="nav-links">
-            {navLinks.map(({ to, label, end }) => (
+            {navLinks.map(({ to, label, end, newTab }) => (
               <NavLink
                 key={to}
                 to={to}
                 end={end}
+                target={newTab ? "_blank" : undefined}
+                rel={newTab ? "noopener noreferrer" : undefined}
+                data-discover={newTab ? "true" : undefined}
                 className={({ isActive }) =>
                   `nav-link${isActive ? " nav-link-active" : ""}`
                 }

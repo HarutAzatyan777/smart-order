@@ -1,19 +1,45 @@
 import { Link } from "react-router-dom";
+import { motion } from "framer-motion";
 import "./Home.css";
+
+const MotionLink = motion(Link);
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 12 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: "easeOut" } }
+};
+
+const cardVariants = {
+  hidden: { opacity: 0, y: 24, scale: 0.98 },
+  visible: (i = 0) => ({
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: { duration: 0.48, ease: "easeOut", delay: i * 0.08 }
+  })
+};
 
 export default function Home() {
   return (
     <div className="home-page">
       <section className="hero">
         <div className="hero-content">
-          <p className="eyebrow">
+          <motion.p className="eyebrow" variants={fadeUp} initial="hidden" animate="visible">
             Service in sync &bull; floor, kitchen, and reporting
-          </p>
-          <h1>Smart Order System</h1>
-          <p className="lead">
+          </motion.p>
+          <motion.h1 variants={fadeUp} initial="hidden" animate="visible" transition={{ delay: 0.08 }}>
+            Smart Order System
+          </motion.h1>
+          <motion.p
+            className="lead"
+            variants={fadeUp}
+            initial="hidden"
+            animate="visible"
+            transition={{ delay: 0.12 }}
+          >
             Run your restaurant in real time. Keep tables moving, tickets clear,
             and the kitchen focused with a single source of truth.
-          </p>
+          </motion.p>
           <div className="cta-row hero-cta">
             <a href="tel:+37496454503" className="btn primary request-demo">
               Request Demo
@@ -51,8 +77,20 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="panel-grid">
-          <Link to="/waiter" className="panel-card waiter-card">
+        <motion.div
+          className="panel-grid"
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, amount: 0.3 }}
+        >
+          <MotionLink
+            to="/waiter"
+            className="panel-card waiter-card"
+            variants={cardVariants}
+            custom={0}
+            whileHover={{ y: -6, scale: 1.02, rotate: -0.25 }}
+            whileTap={{ scale: 0.995 }}
+          >
             <div className="pill">Front-of-house</div>
             <h3>Waiter Panel</h3>
             <p>Create tickets, split seats, and notify the kitchen instantly.</p>
@@ -61,9 +99,16 @@ export default function Home() {
               <span>Orders</span>
               <span>Notes</span>
             </div>
-          </Link>
+          </MotionLink>
 
-          <Link to="/kitchen" className="panel-card kitchen-card">
+          <MotionLink
+            to="/kitchen"
+            className="panel-card kitchen-card"
+            variants={cardVariants}
+            custom={1}
+            whileHover={{ y: -5, scale: 1.01 }}
+            whileTap={{ scale: 0.995 }}
+          >
             <div className="pill">Back-of-house</div>
             <h3>Kitchen Dashboard</h3>
             <p>Live queue with priorities, fires, ready states, and rush calls.</p>
@@ -87,9 +132,16 @@ export default function Home() {
                 </div>
               </div>
             </div>
-          </Link>
+          </MotionLink>
 
-          <Link to="/admin" className="panel-card admin-card">
+          <MotionLink
+            to="/admin"
+            className="panel-card admin-card"
+            variants={cardVariants}
+            custom={2}
+            whileHover={{ y: -5, scale: 1.01 }}
+            whileTap={{ scale: 0.995 }}
+          >
             <div className="pill">Control</div>
             <h3>Admin Panel</h3>
             <p>Menus, staff access, and reporting to keep the floor aligned.</p>
@@ -98,8 +150,8 @@ export default function Home() {
               <span>Staff</span>
               <span>Reports</span>
             </div>
-          </Link>
-        </div>
+          </MotionLink>
+        </motion.div>
       </section>
 
       <section className="mockup">

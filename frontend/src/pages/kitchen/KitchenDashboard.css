@@ -8,12 +8,22 @@
   background: #f6f8fb;
   color: #0f172a;
   font-family: "Inter", system-ui, -apple-system, sans-serif;
+  position: relative;
+}
+
+.kitchen-dashboard.is-fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  padding: 14px;
+  background: #e2e8f0;
+  overflow: auto;
 }
 
 .kitchen-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   gap: 12px;
   flex-wrap: wrap;
   margin-bottom: 14px;
@@ -44,6 +54,34 @@
   gap: 10px;
   align-items: center;
   flex-wrap: wrap;
+}
+
+.k-header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.fullscreen-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+}
+
+.fullscreen-btn:active {
+  transform: translateY(1px);
+}
+
+.fullscreen-label {
+  font-size: 13px;
 }
 
 .mode-toggle {
@@ -190,6 +228,14 @@
   box-shadow: 0 0 0 6px rgba(34, 197, 94, 0.25);
 }
 
+.kitchen-dashboard.is-fullscreen .kitchen-header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 8px 6px;
+  background: #e2e8f0;
+}
+
 .error-message {
   color: #b91c1c;
   background: #fef2f2;
@@ -272,6 +318,10 @@
   background: #f8fafc;
 }
 
+.kitchen-dashboard.is-fullscreen .k-column {
+  min-height: calc(100vh - 120px);
+}
+
 .k-empty {
   padding: 14px;
   border: 1px dashed #cbd5e1;
@@ -282,17 +332,77 @@
 }
 
 .k-card {
-  background: #fff;
-  border: 2px solid #e2e8f0;
-  border-radius: 16px;
-  padding: 14px;
-  display: grid;
-  gap: 10px;
-  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.12);
+  background: none;
+  border: none;
+  padding: 0;
 }
 
 .batch-card {
   position: relative;
+  width: 100%;
+  text-align: left;
+  padding: 16px;
+  border-radius: 20px;
+  border: 1px solid #e2e8f0;
+  background: linear-gradient(180deg, #fdfdfd, #f8fafc);
+  box-shadow: 0 16px 26px rgba(15, 23, 42, 0.12);
+  display: grid;
+  gap: 12px;
+  cursor: grab;
+  transition: transform 0.08s ease, box-shadow 0.08s ease, background 0.08s ease;
+  appearance: none;
+  overflow: hidden;
+}
+
+.batch-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 20px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  pointer-events: none;
+}
+
+.batch-card::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 6px;
+  border-radius: 20px 0 0 20px;
+  background: #0ea5e9;
+}
+
+.batch-card.status-queued::after {
+  background: #f97316;
+  animation: pulse-soft 1.6s ease-in-out infinite;
+}
+
+.batch-card.status-preparing::after {
+  background: #eab308;
+}
+
+.batch-card.status-ready::after {
+  background: #22c55e;
+}
+
+.batch-card:active {
+  transform: translateY(1px) scale(0.97);
+  box-shadow: 0 10px 18px rgba(15, 23, 42, 0.12);
+  background: linear-gradient(180deg, #f5f7fb, #eef2f7);
+  cursor: grabbing;
+}
+
+.batch-card:disabled {
+  opacity: 0.8;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.batch-card:focus-visible {
+  outline: 3px solid #0ea5e9;
+  outline-offset: 2px;
 }
 
 .k-card.is-fresh {
@@ -359,19 +469,36 @@
   gap: 8px;
 }
 
-.k-label {
-  margin: 0;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-size: 12px;
-  color: #475569;
+.k-top-line {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
-.k-table {
-  margin: 2px 0 0;
-  font-size: 28px;
+.k-top-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.drag-hint {
+  font-size: 12px;
+  color: #94a3b8;
+  letter-spacing: 0.02em;
+}
+
+.k-item-title {
+  margin: 0;
+  font-size: 26px;
   font-weight: 900;
   letter-spacing: -0.01em;
+  color: #0f172a;
+}
+
+.k-qty-line {
+  margin: 4px 0 6px;
+  color: #475569;
+  font-weight: 700;
 }
 
 .k-meta {
@@ -419,10 +546,16 @@
 
 .k-item-name {
   color: #0f172a;
+  font-size: 18px;
+  font-weight: 800;
 }
 
 .table-list .k-item {
   background: #fff;
+}
+
+.batch-card .k-item {
+  background: transparent;
 }
 
 .k-notes {

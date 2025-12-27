@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import useStations from "../../hooks/useStations";
 import useStationQueue from "../../hooks/useStationQueue";
 import {
@@ -125,6 +125,9 @@ export default function KitchenDashboard() {
   const [mode, setMode] = useState(
     localStorage.getItem("kitchenMode") === "compact" ? "compact" : "batch"
   );
+  const [dragKey, setDragKey] = useState("");
+  const [boardFullscreen, setBoardFullscreen] = useState(false);
+  const boardRef = useRef(null);
   // eslint-disable-next-line no-unused-vars
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [metricsByStation, setMetricsByStation] = useState({});
@@ -175,7 +178,33 @@ export default function KitchenDashboard() {
     refreshMetrics();
   }, autoRefresh ? 5000 : null);
 
+  useEffect(() => {
+    const target = boardRef.current;
+    if (boardFullscreen && document.fullscreenEnabled && target) {
+      target.requestFullscreen({ navigationUI: "hide" }).catch(() => {
+        setBoardFullscreen(false);
+      });
+    } else if (!boardFullscreen && document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    }
+
+    const handleFsChange = () => {
+      if (!document.fullscreenElement) {
+        setBoardFullscreen(false);
+      }
+    };
+    document.addEventListener("fullscreenchange", handleFsChange);
+    return () => document.removeEventListener("fullscreenchange", handleFsChange);
+  }, [boardFullscreen]);
+
   const grouped = useMemo(() => groupQueueByStatus(queueItems), [queueItems]);
+  const groupIndex = useMemo(() => {
+    const map = new Map();
+    Object.entries(grouped).forEach(([status, list]) => {
+      list.forEach((g) => map.set(g.key, { ...g, status }));
+    });
+    return map;
+  }, [grouped]);
   const flatByStatus = useMemo(() => {
     const buckets = { queued: [], preparing: [], ready: [] };
     queueItems.forEach((item) => {
@@ -243,6 +272,43 @@ export default function KitchenDashboard() {
     } catch (err) {
       console.error("Batch action error:", err);
       const msg = err?.response?.data?.error || "Could not update items.";
+      setError(msg);
+    } finally {
+      setActionId("");
+    }
+  };
+
+  const handleBatchDrop = async (groupKey, targetStatus) => {
+    const group = groupIndex.get(groupKey);
+    if (!group || group.status === targetStatus || !selectedStation?.slug) return;
+    try {
+      setActionId(`${group.key}-${targetStatus}`);
+      setError("");
+      await updateStationItemsStatus(selectedStation.slug, {
+        itemIds: group.items.map((i) => i.id || i.itemId),
+        status: targetStatus,
+        chefName: chefName || undefined,
+        chefId: chefName || undefined,
+        batchId: group.key
+      });
+      notify?.(
+        `Moved ${group.totalQty} x ${group.name} to ${targetStatus}.`,
+        targetStatus === "ready" ? "success" : "info"
+      );
+      const tableEntries = Array.from(group.tables?.values?.() || []);
+      const tableNumber = tableEntries.length === 1 ? tableEntries[0].table : undefined;
+      trackOrderStage(targetStatus, {
+        station: selectedStation.slug,
+        batch_id: group.key,
+        item_name: group.name,
+        quantity: group.totalQty,
+        table_number: tableNumber,
+        chef_name: chefName || undefined
+      });
+      refreshQueue();
+    } catch (err) {
+      console.error("Drop move error:", err);
+      const msg = err?.response?.data?.error || "Could not move batch.";
       setError(msg);
     } finally {
       setActionId("");
@@ -339,80 +405,147 @@ export default function KitchenDashboard() {
     }
   };
 
+  const findColumnFromTouch = (touchEvent) => {
+    const touch = touchEvent.changedTouches?.[0];
+    if (!touch) return null;
+    const el = document.elementFromPoint(touch.clientX, touch.clientY);
+    if (!el) return null;
+    const column = el.closest?.("[data-column]");
+    return column?.dataset?.column || null;
+  };
+
+  const preventIfCancelable = (event) => {
+    if (event?.cancelable) {
+      event.preventDefault();
+    }
+  };
+
   const renderGroupCard = (group, column) => {
     const age = getAgeLabel(group.createdAt);
     const tables = Array.from(group.tables.values()).sort((a, b) => a.table.toString().localeCompare(b.table.toString()));
+    const primaryTable = tables[0];
+    const extraTables = Math.max(0, tables.length - 1);
+    const statusKey = column.key;
+    const statusLabel = column.label;
+    const actionDisabled = actionId === `${group.key}-${column.next}`;
+
+    const handleCardAction = () => {
+      if (!column.next || actionDisabled) return;
+      handleBatchAction(group, column.next);
+    };
+
+    const handleChip = (fn) => (event) => {
+      event.stopPropagation();
+      if (event.type === "keydown" && event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      fn();
+    };
 
     return (
-      <article key={group.key} className="k-card batch-card">
+      <button
+        key={group.key}
+        type="button"
+        className={`k-card batch-card status-${statusKey}`}
+        onClick={handleCardAction}
+        draggable
+        onDragStart={(e) => {
+          e.dataTransfer.effectAllowed = "move";
+          e.dataTransfer.setData("text/plain", group.key);
+          setDragKey(group.key);
+        }}
+        onDragEnd={() => setDragKey("")}
+        onTouchStart={() => setDragKey(group.key)}
+        onTouchEnd={(e) => {
+          const columnKey = findColumnFromTouch(e);
+          if (columnKey) {
+            preventIfCancelable(e);
+            handleBatchDrop(group.key, columnKey);
+          }
+          setDragKey("");
+        }}
+        data-dragging={dragKey === group.key ? "true" : undefined}
+        disabled={actionDisabled}
+        aria-busy={actionDisabled}
+        aria-label={`${statusLabel} batch ${group.name}, ${group.totalQty} items`}
+      >
         <div className="k-card-top">
-          <div>
-            <p className="k-label">{group.name}</p>
-            <p className="k-table">x{group.totalQty}</p>
-            <div className="meta-row">
-              <span className="pill light">{group.items.length} tickets</span>
+          <div className="k-top-line">
+            <span className="k-pill table-pill">
+              Table {primaryTable?.table ?? "-"}
+            </span>
+            {extraTables > 0 ? <span className="k-pill subtle">+{extraTables} more</span> : null}
+          </div>
+          <div className="k-top-meta">
+            <span className="k-age">{age}</span>
+            <span className="drag-hint" aria-hidden>
+              ↔ drag to move
+            </span>
+          </div>
+        </div>
+
+        <div className="k-card-body">
+          <p className="k-item-title">{group.name}</p>
+          <p className="k-qty-line">x{group.totalQty} items</p>
+          <div className="k-items table-list">
+            {tables.map((entry) => (
+              <div key={entry.table} className="k-item">
+                <span className="k-item-name">Table {entry.table}</span>
+                <span className="k-item-qty">x{entry.qty}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="k-card-footer">
+          <span className={`status-pill status-${statusKey}`}>
+            {statusLabel}
+          </span>
+          <div className="meta-row">
+            <span className="pill light">{group.items.length} tickets</span>
             {group.assignedChefName ? (
               <span className="pill subtle">Chef: {group.assignedChefName}</span>
             ) : null}
           </div>
         </div>
-          <div className="k-meta">
-            <span className="k-age">{age}</span>
-          </div>
-        </div>
-
-        <div className="k-items table-list">
-          {tables.map((entry) => (
-            <div key={entry.table} className="k-item">
-              <span className="k-item-name">Table {entry.table}</span>
-              <span className="k-item-qty">x{entry.qty}</span>
-            </div>
-          ))}
-        </div>
 
         {selectedStation?.multiChefEnabled ? (
-          <div className="assign-row">
-            <button
-              className="ghost-btn"
-              onClick={() => handleClaim(group)}
-              disabled={actionId === `claim-${group.key}`}
+          <div className="assign-row within-card" aria-label="Batch assignment">
+            <span
+              role="button"
+              tabIndex={0}
+              className="ghost-chip"
+              onClick={handleChip(() => handleClaim(group))}
+              onKeyDown={handleChip(() => handleClaim(group))}
+              aria-disabled={actionId === `claim-${group.key}`}
             >
-              {actionId === `claim-${group.key}` ? "Assigning..." : "Claim batch"}
-            </button>
-            <button
-              className="ghost-btn danger"
-              onClick={() => handleUnclaim(group)}
-              disabled={actionId === `unclaim-${group.key}`}
+              {actionId === `claim-${group.key}` ? "Assigning..." : "Claim"}
+            </span>
+            <span
+              role="button"
+              tabIndex={0}
+              className="ghost-chip danger"
+              onClick={handleChip(() => handleUnclaim(group))}
+              onKeyDown={handleChip(() => handleUnclaim(group))}
+              aria-disabled={actionId === `unclaim-${group.key}`}
             >
               {actionId === `unclaim-${group.key}` ? "Releasing..." : "Unclaim"}
-            </button>
+            </span>
             {group.assignedChefName ? (
               <span className="pill subtle">Owner: {group.assignedChefName}</span>
             ) : (
-              <span className="muted small">Optional: set your name above</span>
+              <span className="muted small">Set your name above</span>
             )}
           </div>
         ) : null}
-
-        {column.next ? (
-          <button
-            className="k-action"
-            onClick={() => handleBatchAction(group, column.next)}
-            disabled={actionId === `${group.key}-${column.next}`}
-          >
-            {actionId === `${group.key}-${column.next}`
-              ? "Updating..."
-              : column.key === "ready"
-              ? "Complete"
-              : column.actionLabel}
-          </button>
-        ) : null}
-      </article>
+      </button>
     );
   };
 
   return (
-    <div className="kitchen-dashboard">
+    <div
+      ref={boardRef}
+      className={`kitchen-dashboard${boardFullscreen ? " is-fullscreen" : ""}`}
+    >
       <NotificationStack notifications={notifications} onDismiss={dismiss} />
 
       <header className="kitchen-header">
@@ -433,11 +566,25 @@ export default function KitchenDashboard() {
             />
           </div>
         </div>
-        <div className="kitchen-counts">
-          <span className="count-badge new">Queued: {counts.queued}</span>
-          <span className="count-badge preparing">Prep: {counts.preparing}</span>
-          <span className="count-badge ready">Ready: {counts.ready}</span>
-          <span className="live-dot">Live</span>
+        <div className="k-header-actions">
+          <div className="kitchen-counts">
+            <span className="count-badge new">Queued: {counts.queued}</span>
+            <span className="count-badge preparing">Prep: {counts.preparing}</span>
+            <span className="count-badge ready">Ready: {counts.ready}</span>
+            <span className="live-dot">Live</span>
+          </div>
+          <button
+            type="button"
+            className="fullscreen-btn"
+            onClick={() => setBoardFullscreen((v) => !v)}
+            aria-pressed={boardFullscreen}
+            aria-label={boardFullscreen ? "Exit fullscreen board" : "Enter fullscreen board"}
+          >
+            <span aria-hidden>{boardFullscreen ? "⤢" : "⤢"}</span>
+            <span className="fullscreen-label">
+              {boardFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+            </span>
+          </button>
         </div>
       </header>
 
@@ -507,7 +654,23 @@ export default function KitchenDashboard() {
           const list = grouped[col.key] || [];
           const compactList = flatByStatus[col.key] || [];
           return (
-            <div key={col.key} className={`k-column tone-${col.tone}`}>
+            <div
+              key={col.key}
+              className={`k-column tone-${col.tone}`}
+              data-column={col.key}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => {
+                e.preventDefault();
+                const groupKey = e.dataTransfer.getData("text/plain");
+                if (groupKey) handleBatchDrop(groupKey, col.key);
+              }}
+              onTouchEnd={(e) => {
+                if (!dragKey) return;
+                preventIfCancelable(e);
+                handleBatchDrop(dragKey, col.key);
+                setDragKey("");
+              }}
+            >
               <div className="k-column-head">
                 <h2>{col.label}</h2>
                 <span className="k-column-count">{list.length || 0}</span>

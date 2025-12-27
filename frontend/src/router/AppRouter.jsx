@@ -41,7 +41,8 @@ export default function AppRouter() {
 function RouterShell() {
   const location = useLocation();
   const hideHeader = location.pathname.startsWith("/menu");
-  const hideFloatingContact = location.pathname.startsWith("/menu");
+  const hideFloatingContact =
+    location.pathname.startsWith("/menu") || location.pathname.startsWith("/waiter/create");
   const roleForPath = (pathname) => {
     if (pathname.startsWith("/waiter")) return "waiter";
     if (pathname.startsWith("/kitchen")) return "kitchen";

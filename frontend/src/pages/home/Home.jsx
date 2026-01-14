@@ -8,6 +8,7 @@ const fadeUp = {
   hidden: { opacity: 0, y: 12 },
   visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: "easeOut" } }
 };
+//asd
 
 const cardVariants = {
   hidden: { opacity: 0, y: 24, scale: 0.98 },

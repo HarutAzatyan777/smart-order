@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState, useLayoutEffect } from "react";
 import {
   applyStoredConsent,
   ensureConsentDefaults,
@@ -46,34 +46,44 @@ function detectLanguage() {
 }
 
 export default function ConsentBanner() {
-  const [visible, setVisible] = useState(false);
+  const [visible, setVisible] = useState(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      const stored = window.localStorage.getItem("smart-order-consent-v2");
+      return !stored;
+    } catch {
+      return false;
+    }
+  });
   const [ready, setReady] = useState(false);
   const [language, setLanguage] = useState(detectLanguage());
-  const [copyOverrides, setCopyOverrides] = useState(null);
+  const [copyOverrides] = useState(() => {
+    if (typeof window === "undefined") return null;
+    try {
+      const copy = window.localStorage.getItem("smart-consent-banner-copy");
+      return copy ? JSON.parse(copy) : null;
+    } catch {
+      return null;
+    }
+  });
+  
   const text = useMemo(() => {
     const base = LANG_MAP[language] || LANG_MAP.en;
     const override = copyOverrides?.[language] || {};
     return { ...base, ...override };
   }, [language, copyOverrides]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     ensureConsentDefaults();
     applyStoredConsent();
-    try {
-      const stored = window.localStorage.getItem("smart-order-consent-v2");
-      setVisible(!stored);
-      const copy = window.localStorage.getItem("smart-consent-banner-copy");
-      if (copy) {
-        setCopyOverrides(JSON.parse(copy));
-      }
-    } catch (err) {
-      console.error("Consent init error:", err);
-    }
-    setReady(true);
 
     const handleOpen = () => setVisible(true);
     window.addEventListener("smart-consent-open", handleOpen);
-    return () => window.removeEventListener("smart-consent-open", handleOpen);
+    
+    return () => {
+      window.removeEventListener("smart-consent-open", handleOpen);
+      setReady(true);
+    };
   }, []);
 
   const actions = useMemo(

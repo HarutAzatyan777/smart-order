@@ -8,6 +8,7 @@ import { initAnalytics, setAnalyticsContext, trackPageView } from "../utils/anal
 import Home from "../pages/home/Home";
 import MenuPage from "../pages/menu/menu";
 import Contact from "../pages/contact/Contact";
+import Privacy from "../pages/Privacy";
 
 // WAITER
 import WaiterLogin from "../pages/waiter/WaiterLogin";
@@ -76,6 +77,7 @@ function RouterShell() {
         <Route path="/" element={<Home />} />
         <Route path="/contact" element={<Contact />} />
         <Route path="/menu" element={<MenuPage />} />
+        <Route path="/privacy" element={<Privacy />} />
 
         {/* WAITER */}
         <Route path="/waiter" element={<WaiterLogin />} />

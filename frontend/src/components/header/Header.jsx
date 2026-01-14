@@ -55,6 +55,7 @@ export default function Header() {
           id={navId}
           className={`header-nav-area${isMenuOpen ? " is-open" : ""}`}
           data-open={isMenuOpen}
+          onClick={(e) => e.stopPropagation()}
         >
           <nav className="nav-links">
             {navLinks.map(({ to, label, end, newTab }) => (
@@ -65,6 +66,7 @@ export default function Header() {
                 target={newTab ? "_blank" : undefined}
                 rel={newTab ? "noopener noreferrer" : undefined}
                 data-discover={newTab ? "true" : undefined}
+                onClick={() => setIsMenuOpen(false)}
                 className={({ isActive }) =>
                   `nav-link${isActive ? " nav-link-active" : ""}`
                 }

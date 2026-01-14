@@ -31,4 +31,18 @@ if (!admin.apps.length) {
 const db = admin.firestore();
 const bucket = admin.storage().bucket(bucketName);
 
+// Log connection mode for debugging
+const isEmulator = process.env.FIRESTORE_EMULATOR_HOST !== undefined;
+if (isEmulator) {
+  console.log(`🔧 Using Firestore Emulator: ${process.env.FIRESTORE_EMULATOR_HOST}`);
+} else {
+  console.log(`☁️ Using production Firestore (Project: ${getProjectId()})`);
+}
+
+// Firestore settings to avoid timeout issues
+db.settings({ 
+  ignoreUndefinedProperties: true,
+  preferRest: false 
+});
+
 module.exports = { admin, db, bucket };
